@@ -1,11 +1,6 @@
 package main
 
 import (
-	// "os"
-	// "log"
-	// "time"
-	// "strconv"
-	// "encoding/json"
 	"fmt"
 	"sync"
 	"sync/atomic"
