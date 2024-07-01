@@ -315,7 +315,7 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 
 	applyCh := make(chan ApplyMsg)
 
-	rf := Make(ends, i, cfg.saved[i], applyCh)
+	rf := Make(ends/*peers*/, i, cfg.saved[i], applyCh)
 
 	cfg.mu.Lock()
 	cfg.rafts[i] = rf
@@ -326,6 +326,7 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 	svc := labrpc.MakeService(rf)
 	srv := labrpc.MakeServer()
 	srv.AddService(svc)
+    // server name: i, server: rf(i) 
 	cfg.net.AddServer(i, srv)
 }
 
@@ -358,7 +359,9 @@ func (cfg *config) connect(i int) {
 
 	cfg.connected[i] = true
 
+
 	// outgoing ClientEnds
+    // TODO why not just use a two level loop to enable all end?
 	for j := 0; j < cfg.n; j++ {
 		if cfg.connected[j] {
 			endname := cfg.endnames[i][j]
