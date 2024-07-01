@@ -1,0 +1,18 @@
+{
+    "configurations": {
+        "run-delve": {
+          "adapter": "delve",
+          "configuration": {
+            "request": "launch",
+            "mode": "test", // debug|test
+            "program": "${workspaceRoot}/src/raft/test_test.go"
+            // "args": [],
+            // "buildFlags": ...
+            // "stackTraceDepth": ...,
+            // "showGlobalVariables": true,
+            // "env": { "GO111MODULE": "off" },
+          }
+        }
+    }
+}
+

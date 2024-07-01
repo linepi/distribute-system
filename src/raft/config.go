@@ -69,7 +69,7 @@ func make_config(t *testing.T, n int, unreliable bool, snapshot bool) *config {
 		}
 		rand.Seed(makeSeed())
 	})
-	runtime.GOMAXPROCS(4)
+	runtime.GOMAXPROCS(4) // how this feature influence the code action?
 	cfg := &config{}
 	cfg.t = t
 	cfg.net = labrpc.MakeNetwork()
@@ -90,7 +90,7 @@ func make_config(t *testing.T, n int, unreliable bool, snapshot bool) *config {
 	applier := cfg.applier
 	if snapshot {
 		applier = cfg.applierSnap
-	}
+	} 
 	// create a full set of Rafts.
 	for i := 0; i < cfg.n; i++ {
 		cfg.logs[i] = map[int]interface{}{}

@@ -18,13 +18,10 @@ package raft
 //
 
 import (
-	//	"bytes"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	//	"6.5840/labgob"
 	"6.5840/labrpc"
 )
 
@@ -257,3 +254,4 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	return rf
 }
+

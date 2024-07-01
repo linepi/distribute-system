@@ -66,6 +66,20 @@ func (js *JunkServer) Handler7(args int, reply *string) {
 	}
 }
 
+// net
+//   --server1
+//     -- service1(return by MakeService with param a-obj with some implemented handler)
+//     -- service2
+//     -- service3
+//   --server2
+//     -- ervice1
+//     -- ervice2
+//     -- ervice3
+//   --end1(connect to server: server1)
+//   --end2
+//   --end3
+
+
 func TestBasic(t *testing.T) {
 	runtime.GOMAXPROCS(4)
 
@@ -162,7 +176,8 @@ func TestDisconnect(t *testing.T) {
 
 	{
 		reply := ""
-		e.Call("JunkServer.Handler2", 111, &reply)
+        abool := e.Call("JunkServer.Handler2", 111, &reply)
+        fmt.Printf("reply: \"%v\", abool: %v\n", reply, abool)
 		if reply != "" {
 			t.Fatalf("unexpected reply from Handler2")
 		}
@@ -594,4 +609,13 @@ func TestBenchmark(t *testing.T) {
 	}
 	fmt.Printf("%v for %v\n", time.Since(t0), n)
 	// march 2016, rtm laptop, 22 microseconds per RPC
+}
+
+func TestSelect(t *testing.T) {
+    select {
+    case <-time.After(100 * time.Millisecond):
+        fmt.Println("1")
+    case <-time.After(200 * time.Millisecond):
+        fmt.Println("2")
+    }
 }
