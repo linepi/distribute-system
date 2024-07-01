@@ -293,14 +293,14 @@ func (rf *Raft) election() {
             reply := RequestVoteReply{}
             for rf.killed() == false && rf.currentState == Candidate {
                 Log.Printf("[%v] try vote from p%v\n", rf.basicInfo(), i)
-                res := rf.peers[i].Call("Raft.RequestVote", &args, &reply)
-                if !res {
+                ok := rf.peers[i].Call("Raft.RequestVote", &args, &reply)
+                if ok {
+                    replies <- reply
+                    Log.Printf("[%v] done RequestVote(%v, %v)\n", rf.basicInfo(), args, reply)
+                    break
+                } else {
                     Log.Printf("[%v] call RequestVote to %v fail\n", rf.basicInfo(), i)
-                    continue
                 }
-                replies <- reply
-                Log.Printf("[%v] done RequestVote(%v, %v)\n", rf.basicInfo(), args, reply)
-                break
             }
         } (i)
 
@@ -355,11 +355,13 @@ func (rf *Raft) ticker() {
                         args := AppendEntriesArgs{rf.currentTerm, rf.me}
                         reply := AppendEntriesReply{}
                         Log.Printf("[%v] heartbeat from p%v\n", rf.basicInfo(), i)
-                        for !rf.peers[i].Call("Raft.AppendEntries", &args, &reply) {
+                        ok := rf.peers[i].Call("Raft.AppendEntries", &args, &reply)
+                        if ok {
+                            Log.Printf("[%v] done AppendEntries(%v, %v)\n", rf.basicInfo(), args, reply)
+                            replies <- reply
+                        } else {
                             Log.Printf("[%v] call AppendEntries to %v fail\n", rf.basicInfo(), i)
                         }
-                        Log.Printf("[%v] done AppendEntries(%v, %v)\n", rf.basicInfo(), args, reply)
-                        replies <- reply
                     }
                 } (i)
             }
