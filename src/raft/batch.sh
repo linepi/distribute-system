@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # 定义日志文件名
-LOG_FILE="batchlog.txt"
+LOG_FILE="logs/batchlog.txt"
 
 # 最大运行时间（秒）
-MAX_DURATION=$((10 * 60)) # 10分钟
+MAX_DURATION=$((5 * 60)) 
 
 # 开始时间
 START_TIME=$(date +%s)
@@ -18,7 +18,9 @@ run_command() {
     echo "Running command iteration $iteration" >> "$LOG_FILE"
 
     # 运行命令并将输出追加到日志文件
-    go test -run 3A >> "$LOG_FILE" 2>&1
+    # go test -run TestReElection3A >> "$LOG_FILE" 2>&1
+    # go test -run 3A >> "$LOG_FILE" 2>&1
+    go test -run TestManyElections3A >> "$LOG_FILE" 2>&1
 
     # 检查是否超过最大运行时间
     CURRENT_TIME=$(date +%s)

@@ -25,7 +25,7 @@ func init() {
 	if stdout {
 		Log = log.New(os.Stdout, "", flags)
 	} else {
-		files, err := os.ReadDir(".")
+		files, err := os.ReadDir("./logs")
 		if err != nil {
 			fmt.Println("Error reading directory:", err)
 			return
@@ -34,7 +34,7 @@ func init() {
 		for _, file := range files {
 			if !file.IsDir() {
 				name := file.Name()
-				if !strings.Contains(name, "log_") {
+				if !strings.Contains(name, "log_") || strings.Contains(name, "Xlog_") {
 					continue
 				}
 				start := strings.LastIndex(name, "_")
@@ -49,7 +49,7 @@ func init() {
 			}
 		}
 
-		filename := fmt.Sprintf("./log_%v_%v.txt", time.Now().Format("2006_01_02"), num+1)
+		filename := fmt.Sprintf("./logs/log_%v_%v.txt", time.Now().Format("2006_01_02"), num+1)
 		file, err := os.OpenFile(
 			filename,
 			os.O_APPEND|os.O_WRONLY|os.O_CREATE|os.O_EXCL,
