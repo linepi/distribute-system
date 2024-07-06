@@ -34,7 +34,7 @@ func TestInitialElection3A(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	term1 := cfg.checkTerms()
 	if term1 < 1 {
-		t.Fatalf("term is %v, but should be at least 1", term1)
+		cfg.Errorf("term is %v, but should be at least 1", term1)
 	}
 
 	// does the leader+term stay the same if there is no network failure?
@@ -136,12 +136,12 @@ func TestBasicAgree3B(t *testing.T) {
 	for index := 1; index < iters+1; index++ {
 		nd, _ := cfg.nCommitted(index)
 		if nd > 0 {
-			t.Fatalf("some have committed before Start()")
+            cfg.Errorf("some have committed before Start()")
 		}
 
 		xindex := cfg.one(index*100, servers, false)
 		if xindex != index {
-			t.Fatalf("got index %v but expected %v", xindex, index)
+            cfg.Errorf("got index %v but expected %v", xindex, index)
 		}
 	}
 
@@ -166,7 +166,7 @@ func TestRPCBytes3B(t *testing.T) {
 		cmd := randstring(5000)
 		xindex := cfg.one(cmd, servers, false)
 		if xindex != index {
-			t.Fatalf("got index %v but expected %v", xindex, index)
+			cfg.Errorf("got index %v but expected %v", xindex, index)
 		}
 		sent += int64(len(cmd))
 	}
@@ -175,7 +175,7 @@ func TestRPCBytes3B(t *testing.T) {
 	got := bytes1 - bytes0
 	expected := int64(servers) * sent
 	if got > expected+50000 {
-		t.Fatalf("too many RPC bytes; got %v, expected %v", got, expected)
+		cfg.Errorf("too many RPC bytes; got %v, expected %v", got, expected)
 	}
 
 	cfg.end()
@@ -209,10 +209,10 @@ func TestFollowerFailure3B(t *testing.T) {
 	// submit a command.
 	index, _, ok := cfg.rafts[leader2].Start(104)
 	if ok != true {
-		t.Fatalf("leader rejected Start()")
+		cfg.Errorf("leader rejected Start()")
 	}
 	if index != 4 {
-		t.Fatalf("expected index 4, got %v", index)
+		cfg.Errorf("expected index 4, got %v", index)
 	}
 
 	time.Sleep(2 * RaftElectionTimeout)
@@ -220,7 +220,7 @@ func TestFollowerFailure3B(t *testing.T) {
 	// check that command 104 did not commit.
 	n, _ := cfg.nCommitted(index)
 	if n > 0 {
-		t.Fatalf("%v committed but no majority", n)
+		cfg.Errorf("%v committed but no majority", n)
 	}
 
 	cfg.end()
@@ -260,7 +260,7 @@ func TestLeaderFailure3B(t *testing.T) {
 	// check that command 104 did not commit.
 	n, _ := cfg.nCommitted(4)
 	if n > 0 {
-		t.Fatalf("%v committed but no majority", n)
+		cfg.Errorf("%v committed but no majority", n)
 	}
 
 	cfg.end()
@@ -319,17 +319,17 @@ func TestFailNoAgree3B(t *testing.T) {
 
 	index, _, ok := cfg.rafts[leader].Start(20)
 	if ok != true {
-		t.Fatalf("leader rejected Start()")
+		cfg.Errorf("leader rejected Start()")
 	}
 	if index != 2 {
-		t.Fatalf("expected index 2, got %v", index)
+		cfg.Errorf("expected index 2, got %v", index)
 	}
 
 	time.Sleep(2 * RaftElectionTimeout)
 
 	n, _ := cfg.nCommitted(index)
 	if n > 0 {
-		t.Fatalf("%v committed but no majority", n)
+		cfg.Errorf("%v committed but no majority", n)
 	}
 
 	// repair
@@ -342,10 +342,10 @@ func TestFailNoAgree3B(t *testing.T) {
 	leader2 := cfg.checkOneLeader()
 	index2, _, ok2 := cfg.rafts[leader2].Start(30)
 	if ok2 == false {
-		t.Fatalf("leader2 rejected Start()")
+		cfg.Errorf("leader2 rejected Start()")
 	}
 	if index2 < 2 || index2 > 3 {
-		t.Fatalf("unexpected index %v", index2)
+		cfg.Errorf("unexpected index %v", index2)
 	}
 
 	cfg.one(1000, servers, true)
@@ -417,7 +417,7 @@ loop:
 				}
 				cmds = append(cmds, ix)
 			} else {
-				t.Fatalf("value %v is not an int", cmd)
+				cfg.Errorf("value %v is not an int", cmd)
 			}
 		}
 
@@ -439,7 +439,7 @@ loop:
 				}
 			}
 			if ok == false {
-				t.Fatalf("cmd %v missing in %v", x, cmds)
+				cfg.Errorf("cmd %v missing in %v", x, cmds)
 			}
 		}
 
@@ -448,7 +448,7 @@ loop:
 	}
 
 	if !success {
-		t.Fatalf("term changed too often")
+		cfg.Errorf("term changed too often")
 	}
 
 	cfg.end()
@@ -583,7 +583,7 @@ func TestCount3B(t *testing.T) {
 	total1 := rpcs()
 
 	if total1 > 30 || total1 < 1 {
-		t.Fatalf("too many or few RPCs (%v) to elect initial leader\n", total1)
+		cfg.Errorf("too many or few RPCs (%v) to elect initial leader\n", total1)
 	}
 
 	var total2 int
@@ -618,7 +618,7 @@ loop:
 				continue loop
 			}
 			if starti+i != index1 {
-				t.Fatalf("Start() failed")
+				cfg.Errorf("Start() failed")
 			}
 		}
 
@@ -629,7 +629,7 @@ loop:
 					// term changed -- try again
 					continue loop
 				}
-				t.Fatalf("wrong value %v committed for index %v; expected %v\n", cmd, starti+i, cmds)
+				cfg.Errorf("wrong value %v committed for index %v; expected %v\n", cmd, starti+i, cmds)
 			}
 		}
 
@@ -649,7 +649,7 @@ loop:
 		}
 
 		if total2-total1 > (iters+1+3)*3 {
-			t.Fatalf("too many RPCs (%v) for %v entries\n", total2-total1, iters)
+			cfg.Errorf("too many RPCs (%v) for %v entries\n", total2-total1, iters)
 		}
 
 		success = true
@@ -657,7 +657,7 @@ loop:
 	}
 
 	if !success {
-		t.Fatalf("term changed too often")
+		cfg.Errorf("term changed too often")
 	}
 
 	time.Sleep(RaftElectionTimeout)
@@ -668,7 +668,7 @@ loop:
 	}
 
 	if total3-total2 > 3*20 {
-		t.Fatalf("too many RPCs (%v) for 1 second of idleness\n", total3-total2)
+		cfg.Errorf("too many RPCs (%v) for 1 second of idleness\n", total3-total2)
 	}
 
 	cfg.end()
@@ -992,7 +992,7 @@ func internalChurn(t *testing.T, unreliable bool) {
 								values = append(values, x)
 							}
 						} else {
-							cfg.t.Fatalf("wrong command type")
+							cfg.Errorf("wrong command type")
 						}
 						break
 					}
@@ -1070,7 +1070,7 @@ func internalChurn(t *testing.T, unreliable bool) {
 		if vi, ok := v.(int); ok {
 			really = append(really, vi)
 		} else {
-			t.Fatalf("not an int")
+			cfg.Errorf("not an int")
 		}
 	}
 
@@ -1082,7 +1082,7 @@ func internalChurn(t *testing.T, unreliable bool) {
 			}
 		}
 		if ok == false {
-			cfg.t.Fatalf("didn't find a value")
+			cfg.Errorf("didn't find a value")
 		}
 	}
 
@@ -1144,7 +1144,7 @@ func snapcommon(t *testing.T, name string, disconnect bool, reliable bool, crash
 		}
 
 		if cfg.LogSize() >= MAXLOGSIZE {
-			cfg.t.Fatalf("Log size too large")
+			cfg.Errorf("Log size too large")
 		}
 		if disconnect {
 			// reconnect a follower, who maybe behind and
@@ -1219,7 +1219,7 @@ func TestSnapshotAllCrash3D(t *testing.T) {
 
 		index2 := cfg.one(rand.Int(), servers, true)
 		if index2 < index1+1 {
-			t.Fatalf("index decreased from %v to %v", index1, index2)
+			cfg.Errorf("index decreased from %v to %v", index1, index2)
 		}
 	}
 	cfg.end()

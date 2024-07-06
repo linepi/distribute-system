@@ -23,6 +23,7 @@ import "encoding/base64"
 import "time"
 import "fmt"
 import "github.com/pkg/profile"
+import "runtime/debug"
 
 func randstring(n int) string {
 	b := make([]byte, 2*n)
@@ -64,6 +65,13 @@ type config struct {
 }
 
 var ncpu_once sync.Once
+
+func (cfg *config) Errorf(format string, args ...interface{}) {
+    Log.Printf(format, args...)
+    cfg.prof.Stop()
+    Log.Printf("%s\n", debug.Stack())
+    cfg.t.Fatalf(format, args...)
+}
 
 func make_config(t *testing.T, n int, unreliable bool, snapshot bool) *config {
 	ncpu_once.Do(func() {
@@ -448,9 +456,7 @@ func (cfg *config) checkOneLeader() int {
 		lastTermWithLeader := -1
 		for term, leaders := range leaders {
 			if len(leaders) > 1 {
-				Log.Printf("term %d has %d (>1) leaders", term, len(leaders))
-                cfg.prof.Stop()
-				cfg.t.Fatalf("term %d has %d (>1) leaders", term, len(leaders))
+                cfg.Errorf("term %d has %d (>1) leaders", term, len(leaders))
 			}
 			if term > lastTermWithLeader {
 				lastTermWithLeader = term
@@ -462,9 +468,7 @@ func (cfg *config) checkOneLeader() int {
 			return leaders[lastTermWithLeader][0]
 		}
 	}
-    Log.Printf("expected one leader, got none")
-    cfg.prof.Stop()
-	cfg.t.Fatalf("expected one leader, got none")
+    cfg.Errorf("expected one leader, got none")
 	return -1
 }
 
@@ -492,9 +496,7 @@ func (cfg *config) checkNoLeader() {
 		if cfg.connected[i] {
 			_, is_leader := cfg.rafts[i].GetState()
 			if is_leader {
-                Log.Printf("expected no leader among connected servers, but %v claims to be leader\n", i)
-                cfg.prof.Stop()
-				cfg.t.Fatalf("expected no leader among connected servers, but %v claims to be leader", i)
+                cfg.Errorf("expected no leader among connected servers, but %v claims to be leader\n", i)
 			}
 		}
 	}
