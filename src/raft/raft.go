@@ -396,6 +396,7 @@ func (rf *Raft) election() {
                 }
             }
             rf.mu.Unlock()
+        default:
         }
     }
 
@@ -452,6 +453,7 @@ func (rf *Raft) doLeader() {
                 }
             }
             rf.mu.Unlock()
+        default:
         }
     }
     done.Store(true)

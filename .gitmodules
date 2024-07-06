@@ -1,0 +1,3 @@
+[submodule "src/raft/raftscope"]
+	path = src/raft/raftscope
+	url = git@github.com:ongardie/raftscope.git
