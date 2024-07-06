@@ -22,6 +22,7 @@ import "math/big"
 import "encoding/base64"
 import "time"
 import "fmt"
+import "github.com/pkg/profile"
 
 func randstring(n int) string {
 	b := make([]byte, 2*n)
@@ -58,6 +59,8 @@ type config struct {
 	bytes0    int64
 	maxIndex  int
 	maxIndex0 int
+
+    prof      interface{Stop()}
 }
 
 var ncpu_once sync.Once
@@ -71,6 +74,7 @@ func make_config(t *testing.T, n int, unreliable bool, snapshot bool) *config {
 	})
 	runtime.GOMAXPROCS(4) // how this feature influence the code action?
 	cfg := &config{}
+    cfg.prof = profile.Start(profile.GoroutineProfile, profile.NoShutdownHook)
 	cfg.t = t
 	cfg.net = labrpc.MakeNetwork()
 	cfg.n = n
@@ -444,8 +448,9 @@ func (cfg *config) checkOneLeader() int {
 		lastTermWithLeader := -1
 		for term, leaders := range leaders {
 			if len(leaders) > 1 {
-				cfg.t.Fatalf("term %d has %d (>1) leaders", term, len(leaders))
 				Log.Printf("term %d has %d (>1) leaders", term, len(leaders))
+                cfg.prof.Stop()
+				cfg.t.Fatalf("term %d has %d (>1) leaders", term, len(leaders))
 			}
 			if term > lastTermWithLeader {
 				lastTermWithLeader = term
@@ -458,6 +463,7 @@ func (cfg *config) checkOneLeader() int {
 		}
 	}
     Log.Printf("expected one leader, got none")
+    cfg.prof.Stop()
 	cfg.t.Fatalf("expected one leader, got none")
 	return -1
 }
@@ -487,6 +493,7 @@ func (cfg *config) checkNoLeader() {
 			_, is_leader := cfg.rafts[i].GetState()
 			if is_leader {
                 Log.Printf("expected no leader among connected servers, but %v claims to be leader\n", i)
+                cfg.prof.Stop()
 				cfg.t.Fatalf("expected no leader among connected servers, but %v claims to be leader", i)
 			}
 		}
