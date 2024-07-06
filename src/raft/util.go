@@ -14,9 +14,9 @@ var Log *log.Logger
 const stdout = false
 
 func Assert(cond bool, reason string) {
-    if (!cond) {
-        log.Panicf("Assert fail: %v\n", reason)
-    }
+	if !cond {
+		log.Panicf("Assert fail: %v\n", reason)
+	}
 }
 
 func init() {
@@ -70,5 +70,3 @@ func init() {
 		Log = log.New(file, "", flags)
 	}
 }
-
-

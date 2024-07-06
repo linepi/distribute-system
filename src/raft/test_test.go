@@ -66,13 +66,13 @@ func TestReElection3A(t *testing.T) {
 	// if the old leader rejoins, that shouldn't
 	// disturb the new leader. and the old leader
 	// should switch to follower.
-    // 这里的一个问题是，重新连接leader1可能在某个小的时间段会出现两个leader.
+	// 这里的一个问题是，重新连接leader1可能在某个小的时间段会出现两个leader.
 	cfg.connect(leader1)
 	leader2 := cfg.checkOneLeader()
 
 	// if there's no quorum, no new leader should
 	// be elected.
-    // 而这里又disable了两个peer，可能就恰好剩下单独的一个leader，导致后面不通过.
+	// 而这里又disable了两个peer，可能就恰好剩下单独的一个leader，导致后面不通过.
 	cfg.disconnect(leader2)
 	cfg.disconnect((leader2 + 1) % servers)
 	time.Sleep(2 * RaftElectionTimeout)
@@ -136,12 +136,12 @@ func TestBasicAgree3B(t *testing.T) {
 	for index := 1; index < iters+1; index++ {
 		nd, _ := cfg.nCommitted(index)
 		if nd > 0 {
-            cfg.Errorf("some have committed before Start()")
+			cfg.Errorf("some have committed before Start()")
 		}
 
 		xindex := cfg.one(index*100, servers, false)
 		if xindex != index {
-            cfg.Errorf("got index %v but expected %v", xindex, index)
+			cfg.Errorf("got index %v but expected %v", xindex, index)
 		}
 	}
 

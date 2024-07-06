@@ -61,16 +61,17 @@ type config struct {
 	maxIndex  int
 	maxIndex0 int
 
-    prof      interface{Stop()}
+	prof interface{ Stop() }
 }
 
 var ncpu_once sync.Once
+var profStarted bool
 
 func (cfg *config) Errorf(format string, args ...interface{}) {
-    Log.Printf(format, args...)
-    cfg.prof.Stop()
-    Log.Printf("%s\n", debug.Stack())
-    cfg.t.Fatalf(format, args...)
+	Log.Printf(format, args...)
+	cfg.prof.Stop()
+	Log.Printf("%s\n", debug.Stack())
+	cfg.t.Fatalf(format, args...)
 }
 
 func make_config(t *testing.T, n int, unreliable bool, snapshot bool) *config {
@@ -82,7 +83,10 @@ func make_config(t *testing.T, n int, unreliable bool, snapshot bool) *config {
 	})
 	runtime.GOMAXPROCS(4) // how this feature influence the code action?
 	cfg := &config{}
-    cfg.prof = profile.Start(profile.GoroutineProfile, profile.NoShutdownHook)
+	if !profStarted {
+		cfg.prof = profile.Start(profile.GoroutineProfile, profile.NoShutdownHook)
+		profStarted = true
+	}
 	cfg.t = t
 	cfg.net = labrpc.MakeNetwork()
 	cfg.n = n
@@ -367,7 +371,7 @@ func (cfg *config) cleanup() {
 
 // attach server i to the net.
 func (cfg *config) connect(i int) {
-    Log.Printf("connect p%v\n", i)
+	Log.Printf("connect p%v\n", i)
 
 	cfg.connected[i] = true
 
@@ -392,7 +396,7 @@ func (cfg *config) connect(i int) {
 // detach server i from the net.
 func (cfg *config) disconnect(i int) {
 	// fmt.Printf("disconnect(%d)\n", i)
-    Log.Printf("disconnect p%v\n", i)
+	Log.Printf("disconnect p%v\n", i)
 
 	cfg.connected[i] = false
 
@@ -439,7 +443,7 @@ func (cfg *config) setlongreordering(longrel bool) {
 //
 // try a few times in case re-elections are needed.
 func (cfg *config) checkOneLeader() int {
-    Log.Printf("start checkOneLeader\n")
+	Log.Printf("start checkOneLeader\n")
 	for iters := 0; iters < 10; iters++ {
 		ms := 450 + (rand.Int63() % 100)
 		time.Sleep(time.Duration(ms) * time.Millisecond)
@@ -456,7 +460,7 @@ func (cfg *config) checkOneLeader() int {
 		lastTermWithLeader := -1
 		for term, leaders := range leaders {
 			if len(leaders) > 1 {
-                cfg.Errorf("term %d has %d (>1) leaders", term, len(leaders))
+				cfg.Errorf("term %d has %d (>1) leaders", term, len(leaders))
 			}
 			if term > lastTermWithLeader {
 				lastTermWithLeader = term
@@ -464,11 +468,11 @@ func (cfg *config) checkOneLeader() int {
 		}
 
 		if len(leaders) != 0 {
-            Log.Printf("checkOneLeader return %v\n", leaders[lastTermWithLeader][0])
+			Log.Printf("checkOneLeader return %v\n", leaders[lastTermWithLeader][0])
 			return leaders[lastTermWithLeader][0]
 		}
 	}
-    cfg.Errorf("expected one leader, got none")
+	cfg.Errorf("expected one leader, got none")
 	return -1
 }
 
@@ -491,12 +495,12 @@ func (cfg *config) checkTerms() int {
 // check that none of the connected servers
 // thinks it is the leader.
 func (cfg *config) checkNoLeader() {
-    Log.Printf("start checkNoLeader\n")
+	Log.Printf("start checkNoLeader\n")
 	for i := 0; i < cfg.n; i++ {
 		if cfg.connected[i] {
 			_, is_leader := cfg.rafts[i].GetState()
 			if is_leader {
-                cfg.Errorf("expected no leader among connected servers, but %v claims to be leader\n", i)
+				cfg.Errorf("expected no leader among connected servers, but %v claims to be leader\n", i)
 			}
 		}
 	}
