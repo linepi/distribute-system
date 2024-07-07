@@ -236,9 +236,11 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	}
 
 	// INFO page6, "first-come-first-served" basis
-	if rf.getVotedFor() == -1 {
+  votedFor := rf.getVotedFor()
+	if votedFor == -1 || votedFor == args.CandidateId {
 		reply.VoteGranted = true
-		Log.Printf("[%v] give p%v vote\n", rf.basicInfo(), args.CandidateId)
+    Log.Printf("[%v] give p%v vote(newly-give: %v)\n", 
+      rf.basicInfo(), args.CandidateId, votedFor != args.CandidateId)
 		rf.setVotedFor(args.CandidateId)
 		rf.setTimeoutVal()
 	}
