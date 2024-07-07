@@ -84,7 +84,7 @@ func make_config(t *testing.T, n int, unreliable bool, snapshot bool) *config {
 	runtime.GOMAXPROCS(4) // how this feature influence the code action?
 	cfg := &config{}
 	if !profStarted {
-		cfg.prof = profile.Start(profile.GoroutineProfile, profile.NoShutdownHook)
+		cfg.prof = profile.Start(profile.GoroutineProfile, profile.ProfilePath("."), profile.NoShutdownHook)
 		profStarted = true
 	}
 	cfg.t = t
