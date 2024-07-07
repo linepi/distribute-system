@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -25,31 +23,15 @@ func init() {
 	if stdout {
 		Log = log.New(os.Stdout, "", flags)
 	} else {
-		files, err := os.ReadDir("./logs")
-		if err != nil {
-			fmt.Println("Error reading directory:", err)
-			return
-		}
-		num := 0
-		for _, file := range files {
-			if !file.IsDir() {
-				name := file.Name()
-				if !strings.Contains(name, "log_") || strings.Contains(name, "Xlog_") {
-					continue
-				}
-				start := strings.LastIndex(name, "_")
-				end := strings.Index(name, ".")
-				thenum, err := strconv.Atoi(name[start+1 : end])
-				if err != nil {
-					log.Fatalln(err)
-				}
-				if thenum > num {
-					num = thenum
-				}
-			}
-		}
+    now := time.Now()
+    // 标准的时间格式化，到秒
+    baseFormat := now.Format("2006_01_02_15_04_05")
+    // 获取纳秒部分并转换为微秒
+    microseconds := now.Nanosecond() / 1000
+    // 组合成最终的时间戳字符串
+    timestamp := fmt.Sprintf("%s_%06d", baseFormat, microseconds)
 
-		filename := fmt.Sprintf("./logs/log_%v_%v.txt", time.Now().Format("2006_01_02"), num+1)
+		filename := fmt.Sprintf("./logs/log_%s.txt", timestamp)
 		file, err := os.OpenFile(
 			filename,
 			os.O_APPEND|os.O_WRONLY|os.O_CREATE|os.O_EXCL,

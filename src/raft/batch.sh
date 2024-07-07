@@ -1,26 +1,24 @@
 #!/bin/bash
 
-# 定义日志文件名
-LOG_FILE="logs/batchlog.txt"
-
 # 最大运行时间（秒）
-MAX_DURATION=$((60 * 60)) 
+MAX_DURATION=$((1 * 60)) 
 
 # 开始时间
 START_TIME=$(date +%s)
 
 # 运行次数计数器
 iteration=0
+loop=1
 
 # 运行命令的函数
 run_command() {
-    iteration=$((iteration + 1))
-    echo "Running command iteration $iteration" >> "$LOG_FILE"
+    for ((i=1; i<=32; i++)); do
+      # go test -run TestReElection3A >> "$LOG_FILE" 2>&1
+      # go test -run TestManyElections3A >> "$LOG_FILE" 2>&1
+      /tmp/raft -test.run 3A >> /dev/null 2>&1 &
+    done
 
-    # 运行命令并将输出追加到日志文件
-    # go test -run TestReElection3A >> "$LOG_FILE" 2>&1
-    go test -run 3A >> "$LOG_FILE" 2>&1
-    # go test -run TestManyElections3A >> "$LOG_FILE" 2>&1
+    wait
 
     # 检查是否超过最大运行时间
     CURRENT_TIME=$(date +%s)
@@ -28,12 +26,15 @@ run_command() {
 
     if [ "$ELAPSED_TIME" -ge "$MAX_DURATION" ]; then
         echo "Maximum duration exceeded. Exiting."
-        exit 0
+        loop=0
     fi
 }
 
 # 循环运行命令，直到超过最大运行时间
-while true; do
+go test -c -race -o /tmp/raft
+while [ $loop -eq 1 ]; do
     run_command
 done
+
+rg FAIL logs
 
