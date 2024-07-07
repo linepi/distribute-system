@@ -332,7 +332,8 @@ type RequestVoteReply struct {
 }
 
 func (args RequestVoteArgs) String() string {
-	return fmt.Sprintf("{myT: %v, myId: %v}", args.Term, args.CandidateId)
+  return fmt.Sprintf("{T: %v, Id: %v, LastLogIndex: %v, LastLogTerm: %v}", 
+    args.Term, args.CandidateId, args.LastLogIndex, args.LastLogTerm)
 }
 
 func (args RequestVoteReply) String() string {
@@ -439,7 +440,10 @@ type AppendEntriesReply struct {
 }
 
 func (args AppendEntriesArgs) String() string {
-	return fmt.Sprintf("{myT: %v, myId: %v}", args.Term, args.LeaderId)
+  return fmt.Sprintf("{Term: %v, Id: %v, PrevLogIndex: %v, PrevLogTerm: %v, " + 
+    "EntriesLen: %v, LeaderCommit: %v}, ",
+    args.Term, args.LeaderId, args.PrevLogIndex, args.PrevLogTerm,
+    len(args.Entries), args.LeaderCommit)
 }
 
 func (args AppendEntriesReply) String() string {
@@ -553,6 +557,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	index := rf.getLastLogIndex() + 1
 	term := rf.getTerm()
   rf.addLog(logEntry{command, term})
+  Log.Printf("[%v] Start(%v) -> (index:%v,term:%v,isLeader:%v)",
+    rf.basicInfo(), command, index, term, isLeader)
 	return index, term, isLeader
 }
 
@@ -603,7 +609,7 @@ func (rf *Raft) election() {
 				!rf.timeout() && !done.Load() {
         args := rf.NewRequestVoteArgs(i)
 				reply := RequestVoteReply{}
-				Log.Printf("[%v] try vote from p%v\n", rf.basicInfo(), i)
+				Log.Printf("[%v] try RequestVote(%v) to p%v\n", rf.basicInfo(), args, i)
 				ok, isTimeout := rf.sendRequestVote(i, &args, &reply)
 				if rf.getState() != Candidate {
 					break
@@ -614,8 +620,8 @@ func (rf *Raft) election() {
 						int
 						RequestVoteReply
 					}{args.Term, reply}
-					Log.Printf("[%v] done RequestVote(%v, %v) to %v\n",
-						rf.basicInfo(), args, reply, i)
+					Log.Printf("[%v] done RequestVote() -> %v to p%v\n",
+						rf.basicInfo(), reply, i)
 					break
 				} else if isTimeout {
 					Log.Printf("[%v] call RequestVote timeout\n", rf.basicInfo())
@@ -686,7 +692,7 @@ func (rf *Raft) doLeader() {
 			for rf.getState() == Leader && rf.killed() == false && !done.Load() {
         args := rf.NewAppendEntriesArgs(i)
 				reply := AppendEntriesReply{}
-				Log.Printf("[%v] try heartbeat from p%v\n", rf.basicInfo(), i)
+				Log.Printf("[%v] try AppendEntries(%v) to p%v\n", rf.basicInfo(), args, i)
 				ok, isTimeout := rf.sendAppendEntries(i, &args, &reply)
 				if rf.getState() != Leader {
 					break
@@ -697,8 +703,8 @@ func (rf *Raft) doLeader() {
 						int
 						AppendEntriesReply
 					}{args.Term, reply}
-					Log.Printf("[%v] done AppendEntries(%v, %v) to %v\n",
-						rf.basicInfo(), args, reply, i)
+					Log.Printf("[%v] done AppendEntries() -> %v to p%v\n",
+						rf.basicInfo(), reply, i)
 				} else if isTimeout {
 					Log.Printf("[%v] call AppendEntries timeout\n", rf.basicInfo())
 				} else {
