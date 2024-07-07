@@ -485,7 +485,7 @@ func (cfg *config) checkTerms() int {
 			if term == -1 {
 				term = xterm
 			} else if term != xterm {
-				cfg.t.Fatalf("servers disagree on term")
+				cfg.Errorf("servers disagree on term")
 			}
 		}
 	}
@@ -521,7 +521,7 @@ func (cfg *config) nCommitted(index int) (int, interface{}) {
 
 		if ok {
 			if count > 0 && cmd != cmd1 {
-				cfg.t.Fatalf("committed values do not match: index %v, %v, %v",
+				cfg.Errorf("committed values do not match: index %v, %v, %v",
 					index, cmd, cmd1)
 			}
 			count += 1
@@ -556,7 +556,7 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 	}
 	nd, cmd := cfg.nCommitted(index)
 	if nd < n {
-		cfg.t.Fatalf("only %d decided for index %d; wanted %d",
+		cfg.Errorf("only %d decided for index %d; wanted %d",
 			nd, index, n)
 	}
 	return cmd
@@ -613,14 +613,14 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 				time.Sleep(20 * time.Millisecond)
 			}
 			if retry == false {
-				cfg.t.Fatalf("one(%v) failed to reach agreement", cmd)
+				cfg.Errorf("one(%v) failed to reach agreement", cmd)
 			}
 		} else {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
 	if cfg.checkFinished() == false {
-		cfg.t.Fatalf("one(%v) failed to reach agreement", cmd)
+		cfg.Errorf("one(%v) failed to reach agreement", cmd)
 	}
 	return -1
 }
