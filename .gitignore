@@ -8,3 +8,4 @@ src/main/mrmaster
 src/main/mrsequential
 src/main/mrworker
 playground
+.idea

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 最大运行时间（秒）
-MAX_DURATION=$((1 * 60)) 
+MAX_DURATION=$((30 * 60)) 
 
 # 开始时间
 START_TIME=$(date +%s)
