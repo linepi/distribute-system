@@ -586,7 +586,7 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 		Log.Printf("p%v connected?%v\n", r.me, cfg.connected[r.me])
 		r.GetState()
 	}
-	Log.Printf("one(%v, %v, %v)\n", cmd, expectedServers, retry)
+	Log.Printf("one(%v, %v, %v)\n", cmd2str(cmd), expectedServers, retry)
 	t0 := time.Now()
 	starts := 0
 	for time.Since(t0).Seconds() < 10 && cfg.checkFinished() == false {
@@ -619,21 +619,21 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 					// committed
 					if cmd1 == cmd {
 						// and it was the command we submitted.
-						Log.Printf("ret one(%v, %v, %v) -> %v\n", cmd, expectedServers, retry, index)
+						Log.Printf("ret one(%v, %v, %v) -> %v\n", cmd2str(cmd), expectedServers, retry, index)
 						return index
 					}
 				}
 				time.Sleep(20 * time.Millisecond)
 			}
 			if retry == false {
-				cfg.Errorf("one(%v) failed to reach agreement", cmd)
+				cfg.Errorf("one(%v) failed to reach agreement", cmd2str(cmd))
 			}
 		} else {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
 	if cfg.checkFinished() == false {
-		cfg.Errorf("one(%v) failed to reach agreement", cmd)
+		cfg.Errorf("one(%v) failed to reach agreement", cmd2str(cmd))
 	}
 	return -1
 }

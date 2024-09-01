@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # 最大运行时间（秒）
-MAX_DURATION=$((30))
+MAX_DURATION=$((60 * 30))
 
 # 开始时间
 START_TIME=$(date +%s)
 
 finish=0
-parallel=32
+parallel=2
 batch_id=batch$(date '+%Y-%m-%d-%H-%M-%S')
 batch_log_dir=./logs/${batch_id}
 program=/tmp/raft-"$batch_id"
@@ -20,8 +20,8 @@ run_command() {
     for ((i=1; i<=parallel; i++)); do
       # go test -run TestReElection3A >> "$LOG_FILE" 2>&1
       # go test -run TestManyElections3A >> "$LOG_FILE" 2>&1
-      echo "RAFT_LOG_DIR=${batch_log_dir} ${program} -test.run 3B >> /dev/null 2>&1 &"
-      RAFT_LOG_DIR=$batch_log_dir ${program} -test.run 3B >> /dev/null 2>&1 &
+      # echo "RAFT_LOG_DIR=${batch_log_dir} ${program} -test.run 3B >> /dev/null 2>&1 &"
+      RAFT_LOG_DIR=$batch_log_dir ${program} -test.run 3B &
     done
 
     wait
@@ -41,7 +41,12 @@ run_command() {
 go test -c -race -o "${program}"
 while [ $finish -eq 0 ]; do
     run_command
+    out=$(rg "FAIL|debug.Stack" "${batch_log_dir}")
+    if [[ "$out" -ne "" ]]; then
+      echo "FAIL, output:"
+      echo out
+      break
+    fi
 done
 
-rg FAIL "${batch_log_dir}"
 

@@ -34,14 +34,18 @@ type Timeout struct {
 var (
 	AppendEntryCallTimeout = time.Duration(300) * time.Millisecond
 	RequestVoteCallTimeout = time.Duration(300) * time.Millisecond
-	AppendEntryInterval    = Timeout{100, 100}
-	RequestVoteInterval    = Timeout{100, 100}
-	TickerInterval         = Timeout{50, 300}
-	PeerTimeoutInterval    = Timeout{150, 550}
+	AppendEntryInterval    = Timeout{80, 100}
+	RequestVoteInterval    = Timeout{10, 0}
+	TickerInterval         = Timeout{150, 150}
+	PeerTimeoutInterval    = Timeout{450, 200}
 )
 
 func (to *Timeout) new() time.Duration {
-	return time.Duration(to.fixed+(rand.Int()%to.variability)) * time.Millisecond
+	if to.variability == 0 {
+		return time.Duration(to.fixed) * time.Millisecond
+	} else {
+		return time.Duration(to.fixed+(rand.Int()%to.variability)) * time.Millisecond
+	}
 }
 
 // ApplyMsg as each Raft peer becomes aware that successive log entries are
@@ -483,7 +487,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	lastLog := rf.log
 	rf.log = append(rf.log[:args.PrevLogIndex])
 	rf.log = append(rf.log, args.Entries...)
-	Log.Printf("[%v] log update from %v to %v\n", rf.basicInfo(), lastLog, rf.log)
+	// Log.Printf("[%v] log update from %v to %v\n", rf.basicInfo(), lastLog, rf.log)
+	Log.Printf("[%v] log length from %v to %v\n", rf.basicInfo(), len(lastLog), len(rf.log))
 
 	if args.LeaderCommit > rf.commitIndex {
 		if args.LeaderCommit < args.PrevLogIndex+len(args.Entries) {
@@ -524,7 +529,8 @@ func (rf *Raft) sendAppendEntries(
 
 func (rf *Raft) applyMsg(msg ApplyMsg) {
 	rf.applyCh <- msg
-	Log.Printf("[%v] applied msg: %v\n", rf.basicInfo(), msg)
+	Log.Printf("[%v] applied msg {valid: %v, index: %v, cmd: %v}\n",
+		rf.basicInfo(), msg.CommandValid, msg.CommandIndex, cmd2str(msg.Command))
 }
 
 // Start the service using Raft (e.g. a k/v server) wants to start
@@ -737,6 +743,7 @@ func (rf *Raft) doLeader() {
 					rf.setTerm(msg.reply.Term)
 					rf.setState(Follower)
 					rf.setVotedFor(-1)
+					rf.mu.Unlock()
 					break
 				}
 			}

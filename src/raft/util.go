@@ -17,6 +17,15 @@ func Assert(cond bool, reason string) {
 	}
 }
 
+func cmd2str(cmd interface{}) string {
+	raw := fmt.Sprintf("%v", cmd)
+	if len(raw) < 16 {
+		return raw
+	} else {
+		return raw[:16]
+	}
+}
+
 func init() {
 	flags := log.Ltime | log.Lmicroseconds | log.Lshortfile
 	// 初始化 Logger
