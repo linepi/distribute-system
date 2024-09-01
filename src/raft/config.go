@@ -182,6 +182,7 @@ func (cfg *config) applier(i int, applyCh chan ApplyMsg) {
 			cfg.mu.Lock()
 			err_msg, prevok := cfg.checkLogs(i, m)
 			cfg.mu.Unlock()
+			// 如果不是第一个命令，且不存在前一个命令，那么就有问题，说明日志不连续
 			if m.CommandIndex > 1 && prevok == false {
 				err_msg = fmt.Sprintf("server %v apply out of order %v", i, m.CommandIndex)
 			}

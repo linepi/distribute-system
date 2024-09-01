@@ -455,10 +455,12 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			rf.commitIndex = args.PrevLogIndex + len(args.Entries)
 		}
 		if rf.commitIndex > rf.lastApplied {
+			for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
+				rf.applyMsg(ApplyMsg{
+					true, rf.log[i-1].Cmd, i,
+					false, nil, 0, 0})
+			}
 			rf.lastApplied = rf.commitIndex
-			rf.applyMsg(ApplyMsg{
-				true, rf.log[rf.lastApplied-1].Cmd, rf.lastApplied,
-				false, nil, 0, 0})
 		}
 	}
 	rf.muLog.Unlock()
