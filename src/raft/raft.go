@@ -166,7 +166,7 @@ func (rf *Raft) addLog(le logEntry) {
 func (rf *Raft) getLog(i int) logEntry {
 	rf.muLog.RLock()
 	defer rf.muLog.RUnlock()
-	return rf.log[i]
+	return rf.log[i-1]
 }
 
 func (rf *Raft) getLastCommitLog() logEntry {
@@ -186,7 +186,7 @@ func (rf *Raft) getLastLog() logEntry {
 func (rf *Raft) getLastLogIndex() int {
 	rf.muLog.RLock()
 	defer rf.muLog.RUnlock()
-	return len(rf.log) - 1
+	return len(rf.log)
 }
 
 func (rf *Raft) getCommitIndex() int {
@@ -342,17 +342,17 @@ func (args RequestVoteReply) String() string {
 
 func (rf *Raft) NewRequestVoteArgs(i int) RequestVoteArgs {
 	rf.muLog.RLock()
-	lastLogTerm := -1
+	lastLogTerm := 0
+	lastLogIndex := len(rf.log)
 	if len(rf.log) > 0 {
-		lastLogTerm = rf.log[len(rf.log)-1].Term
+		lastLogTerm = rf.log[lastLogIndex-1].Term
 	}
 	args := RequestVoteArgs{rf.getTerm(), rf.me,
-		len(rf.log) - 1, lastLogTerm}
+		lastLogIndex, lastLogTerm}
 	rf.muLog.RUnlock()
 	return args
 }
 
-// example RequestVote RPC handler.
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	// Your code here (3A, 3B).
 	rf.mu.Lock()
@@ -383,7 +383,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		   end with the same term, then whichever log is longer is
 		   more up-to-date.
 		*/
-		if rf.getLastLogIndex() == -1 ||
+		if rf.getLastLogIndex() == 0 ||
 			rf.getLastLog().Term < args.LastLogTerm ||
 			(rf.getLastLog().Term == args.LastLogTerm &&
 				rf.getLastLogIndex() <= args.LastLogIndex) {
@@ -454,15 +454,18 @@ func (rf *Raft) NewAppendEntriesArgs(i int) AppendEntriesArgs {
 	rf.muLog.RLock()
 	nextIndex := rf.getNextIndex(i)
 	entries := []logEntry{}
-	if len(rf.log)-1 >= nextIndex {
+	if nextIndex <= len(rf.log) {
 		// for simplicity just append one entry
-		entries = append(entries, rf.log[nextIndex])
+		entries = append(entries, rf.log[nextIndex-1])
 	}
-	prevLogTerm := -1
-	prevLogIndex := -1
-	if nextIndex > 0 && nextIndex-1 < len(rf.log) {
-		prevLogTerm = rf.log[nextIndex-1].Term
-		prevLogIndex = nextIndex - 1
+	prevLogTerm := 0
+	prevLogIndex := nextIndex - 1
+	if prevLogIndex > 0 {
+		if prevLogIndex > len(rf.log) {
+			Log.Printf("[%v] unexpect: prevLogIndex %v, prevLogTerm %v", rf.basicInfo(), prevLogIndex, prevLogTerm)
+		} else {
+			prevLogTerm = rf.log[prevLogIndex-1].Term
+		}
 	}
 	args := AppendEntriesArgs{rf.getTerm(), rf.me,
 		prevLogIndex, prevLogTerm,
@@ -491,32 +494,51 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 	rf.setTimeoutVal()
 
-	if args.PrevLogIndex == -1 {
+	if args.PrevLogIndex > rf.getLastLogIndex() {
+		Log.Printf("Warning: prev log index > lastLogIndex of follower")
 		reply.Success = false
 		return
 	}
 
-	if args.PrevLogIndex > rf.getLastLogIndex() {
-		reply.Success = false
-		return
-	} else if rf.getLog(args.PrevLogIndex).Term != args.PrevLogTerm {
+	if args.PrevLogIndex >= 1 && rf.getLog(args.PrevLogIndex).Term != args.PrevLogTerm {
 		reply.Success = false
 		return
 	}
 
 	rf.muLog.Lock()
-	if len(rf.log) == args.PrevLogIndex+1 {
-		rf.log = append(rf.log, args.Entries...)
-	} else if rf.log[args.PrevLogIndex+1].Term != args.Entries[0].Term {
-		rf.log = rf.log[:args.PrevLogIndex+1]
-		rf.log = append(rf.log, args.Entries...)
+	/*
+		If an existing entry conflicts with a new one (same index
+		but different terms), delete the existing entry and all that
+		follow it (§5.3).
+		Append any new entries not already in the log.
+	*/
+	i := 0
+	for ; i < len(args.Entries) && args.PrevLogIndex+i < len(rf.log); i++ {
+		entry := args.Entries[i]
+		if entry.Term != rf.log[args.PrevLogIndex+i].Term {
+			rf.log = append(rf.log[:args.PrevLogIndex+i])
+			break
+		}
+	}
+
+	lastLog := rf.log
+	rf.log = append(rf.log, args.Entries[i:]...)
+	Log.Printf("[%v] log update from %v to %v\n", rf.basicInfo(), lastLog, rf.log)
+
+	if args.LeaderCommit > rf.commitIndex {
+		if args.LeaderCommit < args.PrevLogIndex+len(args.Entries) {
+			rf.commitIndex = args.LeaderCommit
+		} else {
+			rf.commitIndex = args.PrevLogIndex + len(args.Entries)
+		}
+		if rf.commitIndex > rf.lastApplied {
+			rf.lastApplied = rf.commitIndex
+			rf.applyMsg(ApplyMsg{
+				true, rf.log[rf.lastApplied-1].Cmd, rf.lastApplied,
+				false, nil, 0, 0})
+		}
 	}
 	rf.muLog.Unlock()
-
-	if args.LeaderCommit > rf.getCommitIndex() {
-		rf.setCommitIndex(
-			min(args.LeaderCommit, args.PrevLogIndex+len(args.Entries)))
-	}
 	reply.Success = true
 }
 
@@ -536,6 +558,11 @@ func (rf *Raft) sendAppendEntries(
 	return ok, false
 }
 
+func (rf *Raft) applyMsg(msg ApplyMsg) {
+	rf.applyCh <- msg
+	Log.Printf("[%v] applied msg: %v\n", rf.basicInfo(), msg)
+}
+
 // Start the service using Raft (e.g. a k/v server) wants to start
 // agreement on the next command to be appended to Raft's log. if this
 // server isn't the leader, returns false. otherwise start the
@@ -548,10 +575,12 @@ func (rf *Raft) sendAppendEntries(
 // if it's ever committed. the second return value is the current
 // term. the third return value is true if this server believes it is
 // the leader.
+//
+// Return commitedIndex, currentTerm, isLeader
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	isLeader := rf.getState() == Leader
-	if !isLeader {
-		return -1, -1, false
+	if rf.killed() || !isLeader {
+		return 0, 0, false
 	}
 
 	index := rf.getLastLogIndex() + 1
@@ -649,7 +678,7 @@ func (rf *Raft) election() {
 					rf.setVotedFor(-1)
 				} else if reply.VoteGranted {
 					votedNum++
-					if votedNum > len(rf.peers)/2 {
+					if votedNum == len(rf.peers)/2+1 {
 						Log.Printf("[%v] After get %v number of votes, I'm Leader!\n",
 							rf.basicInfo(), votedNum)
 						rf.setState(Leader)
@@ -730,34 +759,36 @@ func (rf *Raft) doLeader() {
 
 			rf.muLog.Lock()
 			if reply.Success {
+				// for simplicity just append one entry
 				rf.matchIndex[reply.ReceiverId] = rf.nextIndex[reply.ReceiverId]
 				rf.nextIndex[reply.ReceiverId]++
 			} else {
-				if rf.nextIndex[reply.ReceiverId] > 0 {
+				if rf.nextIndex[reply.ReceiverId] > 1 {
 					rf.nextIndex[reply.ReceiverId]--
 				}
 			}
 			// update commitIndex and apply cmd to state machine
-			for i := len(rf.log) - 1; i > rf.commitIndex; i-- {
-				if rf.log[i].Term == rf.getTerm() {
-					nr_bigger := 0
+			for i := len(rf.log); i > rf.commitIndex; i-- {
+				if rf.log[i-1].Term == rf.getTerm() {
+					nrBigger := 0
 					for j := 0; j < len(rf.matchIndex); j++ {
 						if j == rf.me {
 							continue
 						}
-						if rf.matchIndex[j] > i {
-							nr_bigger++
+						if rf.matchIndex[j] >= i {
+							nrBigger++
 						}
 					}
-					if nr_bigger > len(rf.peers)/2 {
+					if nrBigger == len(rf.peers)/2+1 {
+						Log.Printf("[%v] update commitIndex to %v", rf.basicInfo(), i)
 						rf.commitIndex = i
 						if rf.commitIndex > rf.lastApplied {
 							// for simplicity just append one entry
 							Assert(rf.commitIndex-rf.lastApplied == 1, "")
 							rf.lastApplied = rf.commitIndex
-							rf.applyCh <- ApplyMsg{
-								true, rf.log[rf.lastApplied].Cmd, rf.lastApplied,
-								false, nil, 0, 0}
+							rf.applyMsg(ApplyMsg{
+								true, rf.log[rf.lastApplied-1].Cmd, rf.lastApplied,
+								false, nil, 0, 0})
 						}
 						break
 					}
@@ -829,11 +860,4 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	Log.Printf("Make raft peer %v done\n", rf.me)
 	return rf
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
