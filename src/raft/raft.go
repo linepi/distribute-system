@@ -381,12 +381,17 @@ type AppendEntriesArgs struct {
 	LeaderCommit int
 }
 
+type AppendEntriesReplyFailInfo struct {
+	SuggestNextIndex int
+	TermIsLarge      bool
+}
+
 type AppendEntriesReply struct {
 	/* currentTerm, for leader to update itself */
 	Term int
 	/* true if follower contained entry matching prevLogIndex and prevLogTerm */
-	Success bool
-
+	Success  bool
+	FailInfo AppendEntriesReplyFailInfo
 	// for debug
 	ReceiverId int
 }
@@ -448,11 +453,23 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	if args.PrevLogIndex > rf.getLastLogIndex() {
 		reply.Success = false
+		reply.FailInfo.SuggestNextIndex = len(rf.log) + 1
 		return
 	}
 
 	if args.PrevLogIndex >= 1 && rf.getLog(args.PrevLogIndex).Term != args.PrevLogTerm {
 		reply.Success = false
+		reply.FailInfo.SuggestNextIndex = len(rf.log) + 1
+		if rf.getLog(args.PrevLogIndex).Term > args.PrevLogTerm {
+			initialTerm := rf.getLog(args.PrevLogIndex).Term
+			for i := args.PrevLogIndex; i >= 1; i-- {
+				if rf.getLog(i).Term != initialTerm {
+					reply.FailInfo.SuggestNextIndex = i + 1
+				}
+			}
+		} else {
+			reply.FailInfo.TermIsLarge = true
+		}
 		return
 	}
 
@@ -594,7 +611,8 @@ func (rf *Raft) election() {
 				}
 				if isTimeout {
 					intervalFactor += 1
-					Log.Printf("[%v] call RequestVote timeout\n", rf.basicInfo())
+					Log.Printf("[%v] call RequestVote timeout to p%v, new intervalFactor %v\n",
+						rf.basicInfo(), i, intervalFactor)
 				} else {
 					intervalFactor = 1
 					if ok {
@@ -603,8 +621,8 @@ func (rf *Raft) election() {
 							int
 							RequestVoteReply
 						}{args.Term, reply}
-						Log.Printf("[%v] done RequestVote() -> %v to p%v\n",
-							rf.basicInfo(), reply, i)
+						Log.Printf("[%v] done RequestVote to p%v, which return %v\n",
+							rf.basicInfo(), i, reply)
 						return
 					} else {
 						Log.Printf("[%v] call RequestVote to %v fail\n", rf.basicInfo(), i)
@@ -612,6 +630,7 @@ func (rf *Raft) election() {
 				}
 				select {
 				case <-finish:
+					Log.Printf("[%v] finish RequestVote to p%v in advance\n", rf.basicInfo(), i)
 					return
 				case <-time.After(RequestVoteInterval.new() * time.Duration(intervalFactor)):
 				}
@@ -627,6 +646,7 @@ func (rf *Raft) election() {
 		case reply := <-replies:
 			rf.mu.Lock()
 			if reply.int == rf.currentTerm {
+				Log.Printf("[%v] get a vote reply %v, voteNum now is %v\n", rf.basicInfo(), reply, votedNum)
 				if reply.Term > rf.currentTerm {
 					Log.Printf("[%v] cvt to follower by RequestVote's Reply(%v) from p%v\n",
 						rf.basicInfo(), reply.RequestVoteReply, reply.ReceiverId)
@@ -659,6 +679,7 @@ func (rf *Raft) election() {
 	for i := 0; i < len(rf.peers)-1; i++ {
 		finish <- true
 	}
+	Log.Printf("[%v] election done\n", rf.basicInfo())
 	wg.Wait()
 }
 
@@ -684,14 +705,14 @@ func (rf *Raft) doLeader() {
 				}
 				if isTimeout {
 					intervalFactor += 2
-					Log.Printf("[%v] call AppendEntries timeout\n", rf.basicInfo())
+					Log.Printf("[%v] call AppendEntries timeout to p%v\n", rf.basicInfo(), i)
 				} else {
 					intervalFactor = 1
 					if ok {
 						Assert(reply.ReceiverId == i, "")
 						msgs <- AppendEntriesWrapper{args, reply}
-						Log.Printf("[%v] done AppendEntries() -> %v to p%v\n",
-							rf.basicInfo(), reply, i)
+						Log.Printf("[%v] done AppendEntries() to p%v, which return %v\n",
+							rf.basicInfo(), i, reply)
 					} else {
 						Log.Printf("[%v] call AppendEntries to %v fail\n", rf.basicInfo(), i)
 					}
@@ -704,6 +725,7 @@ func (rf *Raft) doLeader() {
 			}
 		}(i)
 	}
+
 	for rf.getState() == Leader && !rf.killed() {
 		select {
 		case msg := <-msgs:
@@ -715,6 +737,7 @@ func (rf *Raft) doLeader() {
 					rf.setTerm(msg.reply.Term)
 					rf.setState(Follower)
 					rf.setVotedFor(-1)
+					break
 				}
 			}
 
@@ -724,7 +747,17 @@ func (rf *Raft) doLeader() {
 					rf.nextIndex[msg.reply.ReceiverId] += len(msg.arg.Entries)
 					rf.matchIndex[msg.reply.ReceiverId] = rf.nextIndex[msg.reply.ReceiverId] - 1
 				} else {
-					if rf.nextIndex[msg.reply.ReceiverId] > 1 {
+					if msg.reply.FailInfo.TermIsLarge {
+						initialTerm := rf.log[rf.nextIndex[msg.reply.ReceiverId]-1].Term
+						for i := rf.nextIndex[msg.reply.ReceiverId]; i >= 1; i-- {
+							if rf.log[i-1].Term != initialTerm {
+								rf.nextIndex[msg.reply.ReceiverId] = i
+								break
+							}
+						}
+					} else if rf.nextIndex[msg.reply.ReceiverId] > msg.reply.FailInfo.SuggestNextIndex {
+						rf.nextIndex[msg.reply.ReceiverId] = msg.reply.FailInfo.SuggestNextIndex
+					} else if rf.nextIndex[msg.reply.ReceiverId] > 1 {
 						rf.nextIndex[msg.reply.ReceiverId]--
 					}
 				}
@@ -764,6 +797,7 @@ func (rf *Raft) doLeader() {
 	for i := 0; i < len(rf.peers)-1; i++ {
 		finish <- true
 	}
+	Log.Printf("[%v] leader over\n", rf.basicInfo())
 	wg.Wait()
 }
 

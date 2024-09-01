@@ -41,7 +41,7 @@ func init() {
 			}
 		}
 		filename := fmt.Sprintf("%s/log_%s.txt", logDir, timestamp)
-		fmt.Printf("filename: %s\n", filename)
+		fmt.Printf("log path: %s\n", filename)
 
 		file, err := os.OpenFile(
 			filename,

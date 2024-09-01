@@ -1,0 +1,213 @@
+18:46:57.391946 raft.go:205: GetState[0](T: 3, State: Leader)
+18:46:57.391969 config.go:580: p1 connected?true
+18:46:57.391991 raft.go:205: GetState[1](T: 1, State: Leader)
+18:46:57.392003 config.go:580: p2 connected?true
+18:46:57.392012 raft.go:205: GetState[2](T: 26, State: Candidate)
+18:46:57.392024 config.go:580: p3 connected?true
+18:46:57.392036 raft.go:205: GetState[3](T: 4, State: Candidate)
+18:46:57.392054 raft.go:205: GetState[4](T: 3, State: Follower)
+18:46:57.392065 config.go:583: one(1725035551992530902, 3, true)
+18:46:57.392086 raft.go:557: [p1-t1-Leader] Start(1725035551992530902) -> (index:52,term:1,isLeader:true)
+18:46:57.460307 raft.go:704: [p1-t1-Leader] call AppendEntries timeout
+18:46:57.491925 raft.go:697: [p1-t1-Leader] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 51, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}, ) to p2
+18:46:57.492516 raft.go:710: [p1-t1-Leader] done AppendEntries() -> {otherT: 26, Suc: false} to p2
+18:46:57.492529 raft.go:731: [p1-t1-Leader] cvt to follower by AppendEntried's Reply({otherT: 26, Suc: false}) from p2
+18:46:57.499865 raft.go:614: [p3-t4-Candidate] call RequestVote timeout
+18:46:57.499890 raft.go:614: [p3-t4-Candidate] call RequestVote timeout
+18:46:57.499928 raft.go:614: [p3-t4-Candidate] call RequestVote timeout
+18:46:57.499914 raft.go:614: [p3-t4-Candidate] call RequestVote timeout
+18:46:57.575154 raft.go:813: [p2-t26-Candidate] candidate election timeout
+18:46:57.575449 raft.go:607: [p2-t27-Candidate] try RequestVote({T: 27, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p1
+18:46:57.576372 raft.go:607: [p2-t27-Candidate] try RequestVote({T: 27, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p3
+18:46:57.576575 raft.go:317: [p3-t4-Candidate] cvt to follower by RequestVoteCall({T: 27, Id: 2, LastLogIndex: 51, LastLogTerm: 1})
+18:46:57.576888 raft.go:623: [p2-t27-Candidate] done RequestVote() -> {otherT: 4, Voted: false} to p3
+18:46:57.683749 raft.go:810: [p1-t26-Follower] follower election timeout
+18:46:57.683893 raft.go:607: [p1-t27-Candidate] try RequestVote({T: 27, Id: 1, LastLogIndex: 52, LastLogTerm: 1}) to p2
+18:46:57.684641 raft.go:623: [p1-t27-Candidate] done RequestVote() -> {otherT: 27, Voted: false} to p2
+18:46:57.684673 raft.go:607: [p1-t27-Candidate] try RequestVote({T: 27, Id: 1, LastLogIndex: 52, LastLogTerm: 1}) to p3
+18:46:57.685067 raft.go:623: [p1-t27-Candidate] done RequestVote() -> {otherT: 27, Voted: false} to p3
+18:46:57.971952 raft.go:810: [p3-t27-Follower] follower election timeout
+18:46:57.972167 raft.go:607: [p3-t28-Candidate] try RequestVote({T: 28, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:46:57.972760 raft.go:607: [p3-t28-Candidate] try RequestVote({T: 28, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:46:57.973206 raft.go:317: [p2-t27-Candidate] cvt to follower by RequestVoteCall({T: 28, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:46:57.973237 raft.go:341: [p2-t28-Follower] give p3 vote(newly-give: true)
+18:46:57.973428 raft.go:623: [p3-t28-Candidate] done RequestVote() -> {otherT: 27, Voted: true} to p2
+18:46:57.984332 raft.go:614: [p1-t27-Candidate] call RequestVote timeout
+18:46:57.985443 raft.go:614: [p1-t27-Candidate] call RequestVote timeout
+18:46:58.551212 raft.go:813: [p3-t28-Candidate] candidate election timeout
+18:46:58.551486 raft.go:607: [p3-t29-Candidate] try RequestVote({T: 29, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:46:58.552151 raft.go:607: [p3-t29-Candidate] try RequestVote({T: 29, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:46:58.552298 raft.go:317: [p2-t28-Follower] cvt to follower by RequestVoteCall({T: 29, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:46:58.552338 raft.go:341: [p2-t29-Follower] give p3 vote(newly-give: true)
+18:46:58.552511 raft.go:623: [p3-t29-Candidate] done RequestVote() -> {otherT: 28, Voted: true} to p2
+18:46:58.852171 raft.go:614: [p3-t29-Candidate] call RequestVote timeout
+18:46:58.852182 raft.go:614: [p3-t29-Candidate] call RequestVote timeout
+18:46:58.853388 raft.go:614: [p3-t29-Candidate] call RequestVote timeout
+18:46:59.224705 raft.go:813: [p3-t29-Candidate] candidate election timeout
+18:46:59.224958 raft.go:607: [p3-t30-Candidate] try RequestVote({T: 30, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:46:59.225701 raft.go:607: [p3-t30-Candidate] try RequestVote({T: 30, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:46:59.225894 raft.go:317: [p2-t29-Follower] cvt to follower by RequestVoteCall({T: 30, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:46:59.225931 raft.go:341: [p2-t30-Follower] give p3 vote(newly-give: true)
+18:46:59.226090 raft.go:623: [p3-t30-Candidate] done RequestVote() -> {otherT: 29, Voted: true} to p2
+18:46:59.763724 raft.go:813: [p3-t30-Candidate] candidate election timeout
+18:46:59.764010 raft.go:607: [p3-t31-Candidate] try RequestVote({T: 31, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:46:59.764055 raft.go:607: [p3-t31-Candidate] try RequestVote({T: 31, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:46:59.764494 raft.go:317: [p2-t30-Follower] cvt to follower by RequestVoteCall({T: 31, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:46:59.764533 raft.go:341: [p2-t31-Follower] give p3 vote(newly-give: true)
+18:46:59.764703 raft.go:623: [p3-t31-Candidate] done RequestVote() -> {otherT: 30, Voted: true} to p2
+18:47:00.064706 raft.go:614: [p3-t31-Candidate] call RequestVote timeout
+18:47:00.064775 raft.go:614: [p3-t31-Candidate] call RequestVote timeout
+18:47:00.064829 raft.go:614: [p3-t31-Candidate] call RequestVote timeout
+18:47:00.251594 raft.go:810: [p2-t31-Follower] follower election timeout
+18:47:00.262647 raft.go:607: [p2-t32-Candidate] try RequestVote({T: 32, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p1
+18:47:00.262780 raft.go:607: [p2-t32-Candidate] try RequestVote({T: 32, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p3
+18:47:00.282870 raft.go:317: [p3-t31-Candidate] cvt to follower by RequestVoteCall({T: 32, Id: 2, LastLogIndex: 51, LastLogTerm: 1})
+18:47:00.283105 raft.go:623: [p2-t32-Candidate] done RequestVote() -> {otherT: 31, Voted: false} to p3
+18:47:00.563642 raft.go:614: [p2-t32-Candidate] call RequestVote timeout
+18:47:00.563703 raft.go:614: [p2-t32-Candidate] call RequestVote timeout
+18:47:00.563754 raft.go:614: [p2-t32-Candidate] call RequestVote timeout
+18:47:00.589595 raft.go:810: [p3-t32-Follower] follower election timeout
+18:47:00.589784 raft.go:607: [p3-t33-Candidate] try RequestVote({T: 33, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:00.590230 raft.go:607: [p3-t33-Candidate] try RequestVote({T: 33, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:00.590462 raft.go:317: [p2-t32-Candidate] cvt to follower by RequestVoteCall({T: 33, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:00.590499 raft.go:341: [p2-t33-Follower] give p3 vote(newly-give: true)
+18:47:00.590695 raft.go:623: [p3-t33-Candidate] done RequestVote() -> {otherT: 32, Voted: true} to p2
+18:47:00.982826 raft.go:813: [p3-t33-Candidate] candidate election timeout
+18:47:00.983024 raft.go:607: [p3-t34-Candidate] try RequestVote({T: 34, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:00.984073 raft.go:607: [p3-t34-Candidate] try RequestVote({T: 34, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:00.984379 raft.go:317: [p2-t33-Follower] cvt to follower by RequestVoteCall({T: 34, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:00.984416 raft.go:341: [p2-t34-Follower] give p3 vote(newly-give: true)
+18:47:00.984572 raft.go:623: [p3-t34-Candidate] done RequestVote() -> {otherT: 33, Voted: true} to p2
+18:47:01.283228 raft.go:614: [p3-t34-Candidate] call RequestVote timeout
+18:47:01.283399 raft.go:614: [p3-t34-Candidate] call RequestVote timeout
+18:47:01.284543 raft.go:614: [p3-t34-Candidate] call RequestVote timeout
+18:47:01.717770 raft.go:813: [p3-t34-Candidate] candidate election timeout
+18:47:01.718072 raft.go:607: [p3-t35-Candidate] try RequestVote({T: 35, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:01.718392 raft.go:607: [p3-t35-Candidate] try RequestVote({T: 35, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:01.718659 raft.go:317: [p2-t34-Follower] cvt to follower by RequestVoteCall({T: 35, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:01.718718 raft.go:341: [p2-t35-Follower] give p3 vote(newly-give: true)
+18:47:01.718861 raft.go:623: [p3-t35-Candidate] done RequestVote() -> {otherT: 34, Voted: true} to p2
+18:47:01.727243 raft.go:627: [p3-t35-Candidate] call RequestVote to 0 fail
+18:47:02.019270 raft.go:614: [p3-t35-Candidate] call RequestVote timeout
+18:47:02.019342 raft.go:614: [p3-t35-Candidate] call RequestVote timeout
+18:47:02.229577 raft.go:813: [p3-t35-Candidate] candidate election timeout
+18:47:02.229834 raft.go:607: [p3-t36-Candidate] try RequestVote({T: 36, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:02.229918 raft.go:607: [p3-t36-Candidate] try RequestVote({T: 36, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:02.230523 raft.go:317: [p2-t35-Follower] cvt to follower by RequestVoteCall({T: 36, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:02.230557 raft.go:341: [p2-t36-Follower] give p3 vote(newly-give: true)
+18:47:02.230709 raft.go:623: [p3-t36-Candidate] done RequestVote() -> {otherT: 35, Voted: true} to p2
+18:47:02.530423 raft.go:614: [p3-t36-Candidate] call RequestVote timeout
+18:47:02.530508 raft.go:614: [p3-t36-Candidate] call RequestVote timeout
+18:47:02.531627 raft.go:614: [p3-t36-Candidate] call RequestVote timeout
+18:47:02.785803 raft.go:810: [p2-t36-Follower] follower election timeout
+18:47:02.786478 raft.go:607: [p2-t37-Candidate] try RequestVote({T: 37, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p1
+18:47:02.787034 raft.go:607: [p2-t37-Candidate] try RequestVote({T: 37, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p3
+18:47:02.787351 raft.go:317: [p3-t36-Candidate] cvt to follower by RequestVoteCall({T: 37, Id: 2, LastLogIndex: 51, LastLogTerm: 1})
+18:47:02.787521 raft.go:623: [p2-t37-Candidate] done RequestVote() -> {otherT: 36, Voted: false} to p3
+18:47:02.798238 raft.go:810: [p3-t37-Follower] follower election timeout
+18:47:02.812116 raft.go:607: [p3-t38-Candidate] try RequestVote({T: 38, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:02.812183 raft.go:607: [p3-t38-Candidate] try RequestVote({T: 38, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:02.812625 raft.go:317: [p2-t37-Candidate] cvt to follower by RequestVoteCall({T: 38, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:02.812674 raft.go:341: [p2-t38-Follower] give p3 vote(newly-give: true)
+18:47:02.812881 raft.go:623: [p3-t38-Candidate] done RequestVote() -> {otherT: 37, Voted: true} to p2
+18:47:03.112900 raft.go:614: [p3-t38-Candidate] call RequestVote timeout
+18:47:03.112981 raft.go:614: [p3-t38-Candidate] call RequestVote timeout
+18:47:03.113031 raft.go:614: [p3-t38-Candidate] call RequestVote timeout
+18:47:03.243744 raft.go:810: [p2-t38-Follower] follower election timeout
+18:47:03.247123 raft.go:607: [p2-t39-Candidate] try RequestVote({T: 39, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p3
+18:47:03.247391 raft.go:607: [p2-t39-Candidate] try RequestVote({T: 39, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p1
+18:47:03.267335 raft.go:317: [p3-t38-Candidate] cvt to follower by RequestVoteCall({T: 39, Id: 2, LastLogIndex: 51, LastLogTerm: 1})
+18:47:03.267556 raft.go:623: [p2-t39-Candidate] done RequestVote() -> {otherT: 38, Voted: false} to p3
+18:47:03.547661 raft.go:614: [p2-t39-Candidate] call RequestVote timeout
+18:47:03.547716 raft.go:614: [p2-t39-Candidate] call RequestVote timeout
+18:47:03.547781 raft.go:614: [p2-t39-Candidate] call RequestVote timeout
+18:47:03.558682 raft.go:810: [p3-t39-Follower] follower election timeout
+18:47:03.558851 raft.go:607: [p3-t40-Candidate] try RequestVote({T: 40, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:03.559271 raft.go:607: [p3-t40-Candidate] try RequestVote({T: 40, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:03.559593 raft.go:317: [p2-t39-Candidate] cvt to follower by RequestVoteCall({T: 40, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:03.559652 raft.go:341: [p2-t40-Follower] give p3 vote(newly-give: true)
+18:47:03.559934 raft.go:623: [p3-t40-Candidate] done RequestVote() -> {otherT: 39, Voted: true} to p2
+18:47:03.860066 raft.go:614: [p3-t40-Candidate] call RequestVote timeout
+18:47:03.860149 raft.go:614: [p3-t40-Candidate] call RequestVote timeout
+18:47:03.869192 raft.go:614: [p3-t40-Candidate] call RequestVote timeout
+18:47:03.989147 raft.go:810: [p2-t40-Follower] follower election timeout
+18:47:04.005703 raft.go:607: [p2-t41-Candidate] try RequestVote({T: 41, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p3
+18:47:04.005908 raft.go:607: [p2-t41-Candidate] try RequestVote({T: 41, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p1
+18:47:04.025856 raft.go:317: [p3-t40-Candidate] cvt to follower by RequestVoteCall({T: 41, Id: 2, LastLogIndex: 51, LastLogTerm: 1})
+18:47:04.026071 raft.go:623: [p2-t41-Candidate] done RequestVote() -> {otherT: 40, Voted: false} to p3
+18:47:04.233787 raft.go:810: [p3-t41-Follower] follower election timeout
+18:47:04.248215 raft.go:607: [p3-t42-Candidate] try RequestVote({T: 42, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:04.248300 raft.go:607: [p3-t42-Candidate] try RequestVote({T: 42, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:04.248760 raft.go:317: [p2-t41-Candidate] cvt to follower by RequestVoteCall({T: 42, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:04.248899 raft.go:341: [p2-t42-Follower] give p3 vote(newly-give: true)
+18:47:04.249114 raft.go:623: [p3-t42-Candidate] done RequestVote() -> {otherT: 41, Voted: true} to p2
+18:47:04.549098 raft.go:614: [p3-t42-Candidate] call RequestVote timeout
+18:47:04.549149 raft.go:614: [p3-t42-Candidate] call RequestVote timeout
+18:47:04.549177 raft.go:614: [p3-t42-Candidate] call RequestVote timeout
+18:47:04.742924 raft.go:813: [p3-t42-Candidate] candidate election timeout
+18:47:04.743304 raft.go:607: [p3-t43-Candidate] try RequestVote({T: 43, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:04.743584 raft.go:607: [p3-t43-Candidate] try RequestVote({T: 43, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:04.744125 raft.go:317: [p2-t42-Follower] cvt to follower by RequestVoteCall({T: 43, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:04.744172 raft.go:341: [p2-t43-Follower] give p3 vote(newly-give: true)
+18:47:04.744340 raft.go:623: [p3-t43-Candidate] done RequestVote() -> {otherT: 42, Voted: true} to p2
+18:47:05.043928 raft.go:614: [p3-t43-Candidate] call RequestVote timeout
+18:47:05.043920 raft.go:614: [p3-t43-Candidate] call RequestVote timeout
+18:47:05.045073 raft.go:614: [p3-t43-Candidate] call RequestVote timeout
+18:47:05.208712 raft.go:810: [p2-t43-Follower] follower election timeout
+18:47:05.208956 raft.go:607: [p2-t44-Candidate] try RequestVote({T: 44, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p3
+18:47:05.209528 raft.go:317: [p3-t43-Candidate] cvt to follower by RequestVoteCall({T: 44, Id: 2, LastLogIndex: 51, LastLogTerm: 1})
+18:47:05.209693 raft.go:623: [p2-t44-Candidate] done RequestVote() -> {otherT: 43, Voted: false} to p3
+18:47:05.210112 raft.go:607: [p2-t44-Candidate] try RequestVote({T: 44, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p1
+18:47:05.291536 raft.go:810: [p3-t44-Follower] follower election timeout
+18:47:05.309170 raft.go:607: [p3-t45-Candidate] try RequestVote({T: 45, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:05.309440 raft.go:607: [p3-t45-Candidate] try RequestVote({T: 45, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:05.309878 raft.go:317: [p2-t44-Candidate] cvt to follower by RequestVoteCall({T: 45, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:05.309961 raft.go:341: [p2-t45-Follower] give p3 vote(newly-give: true)
+18:47:05.310292 raft.go:623: [p3-t45-Candidate] done RequestVote() -> {otherT: 44, Voted: true} to p2
+18:47:05.609456 raft.go:614: [p3-t45-Candidate] call RequestVote timeout
+18:47:05.609515 raft.go:614: [p3-t45-Candidate] call RequestVote timeout
+18:47:05.609497 raft.go:614: [p3-t45-Candidate] call RequestVote timeout
+18:47:06.027471 raft.go:813: [p3-t45-Candidate] candidate election timeout
+18:47:06.027862 raft.go:607: [p3-t46-Candidate] try RequestVote({T: 46, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:06.028153 raft.go:317: [p2-t45-Follower] cvt to follower by RequestVoteCall({T: 46, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:06.028188 raft.go:341: [p2-t46-Follower] give p3 vote(newly-give: true)
+18:47:06.028339 raft.go:623: [p3-t46-Candidate] done RequestVote() -> {otherT: 45, Voted: true} to p2
+18:47:06.028556 raft.go:607: [p3-t46-Candidate] try RequestVote({T: 46, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:06.328986 raft.go:614: [p3-t46-Candidate] call RequestVote timeout
+18:47:06.329003 raft.go:614: [p3-t46-Candidate] call RequestVote timeout
+18:47:06.329075 raft.go:614: [p3-t46-Candidate] call RequestVote timeout
+18:47:06.615210 raft.go:810: [p2-t46-Follower] follower election timeout
+18:47:06.615893 raft.go:607: [p2-t47-Candidate] try RequestVote({T: 47, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p3
+18:47:06.616174 raft.go:317: [p3-t46-Candidate] cvt to follower by RequestVoteCall({T: 47, Id: 2, LastLogIndex: 51, LastLogTerm: 1})
+18:47:06.616327 raft.go:623: [p2-t47-Candidate] done RequestVote() -> {otherT: 46, Voted: false} to p3
+18:47:06.616357 raft.go:607: [p2-t47-Candidate] try RequestVote({T: 47, Id: 2, LastLogIndex: 51, LastLogTerm: 1}) to p1
+18:47:06.683554 raft.go:810: [p3-t47-Follower] follower election timeout
+18:47:06.693642 raft.go:607: [p3-t48-Candidate] try RequestVote({T: 48, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:06.693681 raft.go:607: [p3-t48-Candidate] try RequestVote({T: 48, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:06.694199 raft.go:317: [p2-t47-Candidate] cvt to follower by RequestVoteCall({T: 48, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:06.694232 raft.go:341: [p2-t48-Follower] give p3 vote(newly-give: true)
+18:47:06.694393 raft.go:623: [p3-t48-Candidate] done RequestVote() -> {otherT: 47, Voted: true} to p2
+18:47:06.993926 raft.go:614: [p3-t48-Candidate] call RequestVote timeout
+18:47:06.993958 raft.go:614: [p3-t48-Candidate] call RequestVote timeout
+18:47:06.993981 raft.go:614: [p3-t48-Candidate] call RequestVote timeout
+18:47:07.278602 raft.go:813: [p3-t48-Candidate] candidate election timeout
+18:47:07.278788 raft.go:607: [p3-t49-Candidate] try RequestVote({T: 49, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p2
+18:47:07.279398 raft.go:317: [p2-t48-Follower] cvt to follower by RequestVoteCall({T: 49, Id: 3, LastLogIndex: 51, LastLogTerm: 3})
+18:47:07.279434 raft.go:341: [p2-t49-Follower] give p3 vote(newly-give: true)
+18:47:07.279597 raft.go:623: [p3-t49-Candidate] done RequestVote() -> {otherT: 48, Voted: true} to p2
+18:47:07.279809 raft.go:607: [p3-t49-Candidate] try RequestVote({T: 49, Id: 3, LastLogIndex: 51, LastLogTerm: 3}) to p1
+18:47:07.400964 config.go:71: one(1725035551992530902) failed to reach agreement
+18:47:07.410832 config.go:73: goroutine 6 [running]:
+runtime/debug.Stack()
+	/usr/local/go/src/runtime/debug/stack.go:24 +0x67
+6.5840/raft.(*config).Errorf(0xc000289a40, {0x8ceb76, 0x21}, {0xc0000e1d38, 0x1, 0x1})
+	/home/wu/dev/6.5840/src/raft/config.go:73 +0x145
+6.5840/raft.(*config).one(0xc000289a40, {0x85f980, 0xc0004c7538}, 0x3, 0x1)
+	/home/wu/dev/6.5840/src/raft/config.go:630 +0x652
+6.5840/raft.TestBackup3B(0xc0000fed00)
+	/home/wu/dev/6.5840/src/raft/test_test.go:558 +0x58b
+testing.tRunner(0xc0000fed00, 0x8f3d28)
+	/usr/local/go/src/testing/testing.go:1689 +0x21f
+created by testing.(*T).Run in goroutine 1
+	/usr/local/go/src/testing/testing.go:1742 +0x826
+

@@ -8,7 +8,10 @@ package raft
 // test with the original before submitting.
 //
 
-import "6.5840/labgob"
+import (
+	"6.5840/labgob"
+	"os"
+)
 import "6.5840/labrpc"
 import "bytes"
 import "log"
@@ -69,7 +72,9 @@ var profStarted bool
 
 func (cfg *config) Errorf(format string, args ...interface{}) {
 	Log.Printf(format, args...)
-	cfg.prof.Stop()
+	if profStarted {
+		cfg.prof.Stop()
+	}
 	Log.Printf("%s\n", debug.Stack())
 	cfg.t.Fatalf(format, args...)
 }
@@ -83,7 +88,8 @@ func make_config(t *testing.T, n int, unreliable bool, snapshot bool) *config {
 	})
 	runtime.GOMAXPROCS(4) // how this feature influence the code action?
 	cfg := &config{}
-	if !profStarted {
+	_, exists := os.LookupEnv("RAFT_PERF_ON") // 注意：从 Go 1.17 开始，推荐使用 LookupEnv
+	if !profStarted && exists {
 		cfg.prof = profile.Start(profile.GoroutineProfile, profile.ProfilePath("."), profile.NoShutdownHook)
 		profStarted = true
 	}
