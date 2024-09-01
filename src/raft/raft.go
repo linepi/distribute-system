@@ -346,9 +346,9 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	}
 }
 
-// return (ok, isTimeout)
+// return (ok, isTimeout, finish)
 func (rf *Raft) sendRequestVote(
-	peer int, args *RequestVoteArgs, reply *RequestVoteReply) (bool, bool) {
+	peer int, args *RequestVoteArgs, reply *RequestVoteReply, finish chan bool) (bool, bool, bool) {
 	done := make(chan bool)
 	ok := false
 	go func() {
@@ -357,10 +357,12 @@ func (rf *Raft) sendRequestVote(
 	}()
 	select {
 	case <-done:
+	case <-finish:
+		return true, false, true
 	case <-time.After(RequestVoteCallTimeout):
-		return false, true
+		return false, true, false
 	}
-	return ok, false
+	return ok, false, false
 }
 
 type AppendEntriesArgs struct {
@@ -486,7 +488,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 }
 
 func (rf *Raft) sendAppendEntries(
-	peer int, args *AppendEntriesArgs, reply *AppendEntriesReply) (bool, bool) {
+	peer int, args *AppendEntriesArgs, reply *AppendEntriesReply, finish chan bool) (bool, bool, bool) {
 	done := make(chan bool)
 	ok := false
 	go func() {
@@ -495,10 +497,12 @@ func (rf *Raft) sendAppendEntries(
 	}()
 	select {
 	case <-done:
+	case <-finish:
+		return true, false, true
 	case <-time.After(AppendEntryCallTimeout):
-		return false, true
+		return false, true, false
 	}
-	return ok, false
+	return ok, false, false
 }
 
 func (rf *Raft) applyMsg(msg ApplyMsg) {
@@ -563,8 +567,7 @@ func (rf *Raft) election() {
 	rf.setVotedFor(rf.me)
 
 	var wg sync.WaitGroup
-	var done atomic.Bool
-	done.Store(false)
+	finish := make(chan bool, len(rf.peers)-1)
 
 	// While waiting for votes, a candidate may receive an
 	// AppendEntries RPC from another server claiming to be
@@ -573,8 +576,7 @@ func (rf *Raft) election() {
 		int
 		RequestVoteReply
 	}, len(rf.peers)-1)
-	for i := 0; rf.killed() == false && rf.getState() == Candidate &&
-		!rf.timeout() && i < len(rf.peers); i++ {
+	for i := 0; !rf.killed() && rf.getState() == Candidate && !rf.timeout() && i < len(rf.peers); i++ {
 		if i == rf.me {
 			continue
 		}
@@ -582,14 +584,13 @@ func (rf *Raft) election() {
 		go func(i int) {
 			defer wg.Done()
 			intervalFactor := 1
-			for rf.killed() == false && rf.getState() == Candidate &&
-				!rf.timeout() && !done.Load() {
+			for !rf.killed() && rf.getState() == Candidate && !rf.timeout() {
 				args := rf.NewRequestVoteArgs(i)
 				reply := RequestVoteReply{}
 				Log.Printf("[%v] try RequestVote(%v) to p%v\n", rf.basicInfo(), args, i)
-				ok, isTimeout := rf.sendRequestVote(i, &args, &reply)
-				if rf.getState() != Candidate {
-					break
+				ok, isTimeout, toBreak := rf.sendRequestVote(i, &args, &reply, finish)
+				if rf.getState() != Candidate || toBreak {
+					return
 				}
 				if isTimeout {
 					intervalFactor += 1
@@ -604,19 +605,23 @@ func (rf *Raft) election() {
 						}{args.Term, reply}
 						Log.Printf("[%v] done RequestVote() -> %v to p%v\n",
 							rf.basicInfo(), reply, i)
-						break
+						return
 					} else {
 						Log.Printf("[%v] call RequestVote to %v fail\n", rf.basicInfo(), i)
 					}
 				}
-				time.Sleep(RequestVoteInterval.new() * time.Duration(intervalFactor))
+				select {
+				case <-finish:
+					return
+				case <-time.After(RequestVoteInterval.new() * time.Duration(intervalFactor)):
+				}
 			}
 		}(i)
 
 	}
 
 	votedNum := 1
-	for rf.killed() == false && rf.getState() == Candidate && !rf.timeout() {
+	for !rf.killed() && rf.getState() == Candidate && !rf.timeout() {
 		// Only if the two terms are the same should you continue processing the reply.
 		select {
 		case reply := <-replies:
@@ -651,17 +656,17 @@ func (rf *Raft) election() {
 		}
 	}
 
-	done.Store(true)
+	for i := 0; i < len(rf.peers)-1; i++ {
+		finish <- true
+	}
 	wg.Wait()
 }
 
 func (rf *Raft) doLeader() {
 	msgs := make(chan AppendEntriesWrapper, len(rf.peers)-1)
 	var wg sync.WaitGroup
-	var done atomic.Bool
-	done.Store(false)
-	for i := 0; rf.getState() == Leader && rf.killed() == false &&
-		!done.Load() && i < len(rf.peers); i++ {
+	finish := make(chan bool, len(rf.peers)-1)
+	for i := 0; rf.getState() == Leader && !rf.killed() && i < len(rf.peers); i++ {
 		if i == rf.me {
 			continue
 		}
@@ -669,13 +674,13 @@ func (rf *Raft) doLeader() {
 		go func(i int) {
 			defer wg.Done()
 			intervalFactor := 1
-			for rf.getState() == Leader && rf.killed() == false && !done.Load() {
+			for rf.getState() == Leader && !rf.killed() {
 				args := rf.NewAppendEntriesArgs(i)
 				reply := AppendEntriesReply{}
 				Log.Printf("[%v] try AppendEntries(%v) to p%v\n", rf.basicInfo(), args, i)
-				ok, isTimeout := rf.sendAppendEntries(i, &args, &reply)
-				if rf.getState() != Leader {
-					break
+				ok, isTimeout, toBreak := rf.sendAppendEntries(i, &args, &reply, finish)
+				if rf.getState() != Leader || toBreak {
+					return
 				}
 				if isTimeout {
 					intervalFactor += 2
@@ -691,11 +696,15 @@ func (rf *Raft) doLeader() {
 						Log.Printf("[%v] call AppendEntries to %v fail\n", rf.basicInfo(), i)
 					}
 				}
-				time.Sleep(AppendEntryInterval.new() * time.Duration(intervalFactor))
+				select {
+				case <-finish:
+					return
+				case <-time.After(AppendEntryInterval.new() * time.Duration(intervalFactor)):
+				}
 			}
 		}(i)
 	}
-	for rf.getState() == Leader && rf.killed() == false {
+	for rf.getState() == Leader && !rf.killed() {
 		select {
 		case msg := <-msgs:
 			rf.mu.Lock()
@@ -752,7 +761,9 @@ func (rf *Raft) doLeader() {
 		default:
 		}
 	}
-	done.Store(true)
+	for i := 0; i < len(rf.peers)-1; i++ {
+		finish <- true
+	}
 	wg.Wait()
 }
 
@@ -765,16 +776,18 @@ func (rf *Raft) ticker() {
 		// Log.Printf("[%v] ticker loop start\n", rf.basicInfo())
 		// Your code here (3A)
 		// Check if a leader election should be started.
-		if rf.getState() == Leader {
-			rf.doLeader()
-		} else if rf.timeout() {
+		if rf.timeout() {
 			if rf.getState() == Follower {
 				Log.Printf("[%v] follower election timeout\n", rf.basicInfo())
 				rf.setState(Candidate)
-				rf.election()
 			} else if rf.getState() == Candidate {
 				Log.Printf("[%v] candidate election timeout\n", rf.basicInfo())
-				rf.election()
+			} else {
+				Log.Panicf("Unexpect\n")
+			}
+			rf.election()
+			if rf.getState() == Leader {
+				rf.doLeader()
 			}
 		}
 
