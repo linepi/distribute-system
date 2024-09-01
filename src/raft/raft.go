@@ -26,6 +26,24 @@ import (
 	"time"
 )
 
+type Timeout struct {
+	fixed       int
+	variability int
+}
+
+var (
+	AppendEntryCallTimeout = time.Duration(300) * time.Millisecond
+	RequestVoteCallTimeout = time.Duration(300) * time.Millisecond
+	AppendEntryInterval    = Timeout{100, 100}
+	RequestVoteInterval    = Timeout{100, 100}
+	TickerInterval         = Timeout{50, 300}
+	PeerTimeoutInterval    = Timeout{150, 550}
+)
+
+func (to *Timeout) new() time.Duration {
+	return time.Duration(to.fixed+(rand.Int()%to.variability)) * time.Millisecond
+}
+
 // ApplyMsg as each Raft peer becomes aware that successive log entries are
 // committed, the peer should send an ApplyMsg to the service (or
 // tester) on the same server, via the applyCh passed to Make(). set
@@ -75,7 +93,7 @@ type Raft struct {
 	votedFor     int
 	currentState State
 	lastTime     time.Time // last time out
-	timeoutVal   int64     // milliseconds
+	timeoutVal   time.Duration
 
 	/* log */
 	muLog sync.RWMutex
@@ -147,14 +165,14 @@ func (rf *Raft) setVotedFor(v int) {
 func (rf *Raft) timeout() bool {
 	rf.muCom.RLock()
 	defer rf.muCom.RUnlock()
-	return time.Now().Sub(rf.lastTime).Milliseconds() > rf.timeoutVal
+	return time.Now().Sub(rf.lastTime) > rf.timeoutVal
 }
 
 func (rf *Raft) setTimeoutVal() {
 	rf.muCom.Lock()
 	defer rf.muCom.Unlock()
 	rf.lastTime = time.Now()
-	rf.timeoutVal = rand.Int63()%150 + 550
+	rf.timeoutVal = PeerTimeoutInterval.new()
 }
 
 func (rf *Raft) addLog(le logEntry) {
@@ -339,7 +357,7 @@ func (rf *Raft) sendRequestVote(
 	}()
 	select {
 	case <-done:
-	case <-time.After(time.Duration(300) * time.Millisecond):
+	case <-time.After(RequestVoteCallTimeout):
 		return false, true
 	}
 	return ok, false
@@ -477,7 +495,7 @@ func (rf *Raft) sendAppendEntries(
 	}()
 	select {
 	case <-done:
-	case <-time.After(time.Duration(300) * time.Millisecond):
+	case <-time.After(AppendEntryCallTimeout):
 		return false, true
 	}
 	return ok, false
@@ -503,17 +521,21 @@ func (rf *Raft) applyMsg(msg ApplyMsg) {
 //
 // Return commitedIndex, currentTerm, isLeader
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	isLeader := rf.getState() == Leader
+	rf.muCom.Lock()
+	rf.muLog.Lock()
+	defer rf.muCom.Unlock()
+	defer rf.muLog.Unlock()
+	isLeader := rf.currentState == Leader
 	if rf.killed() || !isLeader {
 		return 0, 0, false
 	}
 
-	index := rf.getLastLogIndex() + 1
-	term := rf.getTerm()
-	rf.addLog(logEntry{command, term})
+	index := len(rf.log) + 1
+	rf.log = append(rf.log, logEntry{command, rf.currentTerm})
+	basicInfo := fmt.Sprintf("p%v-t%v-%v", rf.me, rf.currentTerm, rf.currentState)
 	Log.Printf("[%v] Start(%v) -> (index:%v,term:%v,isLeader:%v)",
-		rf.basicInfo(), command, index, term, isLeader)
-	return index, term, isLeader
+		basicInfo, command, index, rf.currentTerm, isLeader)
+	return index, rf.currentTerm, isLeader
 }
 
 // Kill the tester doesn't halt goroutines created by Raft after each test,
@@ -559,6 +581,7 @@ func (rf *Raft) election() {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
+			intervalFactor := 1
 			for rf.killed() == false && rf.getState() == Candidate &&
 				!rf.timeout() && !done.Load() {
 				args := rf.NewRequestVoteArgs(i)
@@ -568,21 +591,25 @@ func (rf *Raft) election() {
 				if rf.getState() != Candidate {
 					break
 				}
-				if ok {
-					Assert(reply.ReceiverId == i, "")
-					replies <- struct {
-						int
-						RequestVoteReply
-					}{args.Term, reply}
-					Log.Printf("[%v] done RequestVote() -> %v to p%v\n",
-						rf.basicInfo(), reply, i)
-					break
-				} else if isTimeout {
+				if isTimeout {
+					intervalFactor += 1
 					Log.Printf("[%v] call RequestVote timeout\n", rf.basicInfo())
 				} else {
-					Log.Printf("[%v] call RequestVote to %v fail\n", rf.basicInfo(), i)
+					intervalFactor = 1
+					if ok {
+						Assert(reply.ReceiverId == i, "")
+						replies <- struct {
+							int
+							RequestVoteReply
+						}{args.Term, reply}
+						Log.Printf("[%v] done RequestVote() -> %v to p%v\n",
+							rf.basicInfo(), reply, i)
+						break
+					} else {
+						Log.Printf("[%v] call RequestVote to %v fail\n", rf.basicInfo(), i)
+					}
 				}
-				time.Sleep(time.Duration(rand.Int63()%100+100) * time.Millisecond)
+				time.Sleep(RequestVoteInterval.new() * time.Duration(intervalFactor))
 			}
 		}(i)
 
@@ -641,6 +668,7 @@ func (rf *Raft) doLeader() {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
+			intervalFactor := 1
 			for rf.getState() == Leader && rf.killed() == false && !done.Load() {
 				args := rf.NewAppendEntriesArgs(i)
 				reply := AppendEntriesReply{}
@@ -649,17 +677,21 @@ func (rf *Raft) doLeader() {
 				if rf.getState() != Leader {
 					break
 				}
-				if ok {
-					Assert(reply.ReceiverId == i, "")
-					msgs <- AppendEntriesWrapper{args, reply}
-					Log.Printf("[%v] done AppendEntries() -> %v to p%v\n",
-						rf.basicInfo(), reply, i)
-				} else if isTimeout {
+				if isTimeout {
+					intervalFactor += 2
 					Log.Printf("[%v] call AppendEntries timeout\n", rf.basicInfo())
 				} else {
-					Log.Printf("[%v] call AppendEntries to %v fail\n", rf.basicInfo(), i)
+					intervalFactor = 1
+					if ok {
+						Assert(reply.ReceiverId == i, "")
+						msgs <- AppendEntriesWrapper{args, reply}
+						Log.Printf("[%v] done AppendEntries() -> %v to p%v\n",
+							rf.basicInfo(), reply, i)
+					} else {
+						Log.Printf("[%v] call AppendEntries to %v fail\n", rf.basicInfo(), i)
+					}
 				}
-				time.Sleep(time.Duration(rand.Int63()%100+100) * time.Millisecond)
+				time.Sleep(AppendEntryInterval.new() * time.Duration(intervalFactor))
 			}
 		}(i)
 	}
@@ -746,8 +778,7 @@ func (rf *Raft) ticker() {
 			}
 		}
 
-		ms := 50 + (rand.Int63() % 300)
-		time.Sleep(time.Duration(ms) * time.Millisecond)
+		time.Sleep(TickerInterval.new())
 	}
 }
 

@@ -496,6 +496,7 @@ func TestRejoin3B(t *testing.T) {
 
 func TestBackup3B(t *testing.T) {
 	servers := 5
+	loopNum := 50
 	cfg := make_config(t, servers, false, false)
 	defer cfg.cleanup()
 
@@ -510,7 +511,7 @@ func TestBackup3B(t *testing.T) {
 	cfg.disconnect((leader1 + 4) % servers)
 
 	// submit lots of commands that won't commit
-	for i := 0; i < 50; i++ {
+	for i := 0; i < loopNum; i++ {
 		cfg.rafts[leader1].Start(rand.Int())
 	}
 
@@ -525,7 +526,7 @@ func TestBackup3B(t *testing.T) {
 	cfg.connect((leader1 + 4) % servers)
 
 	// lots of successful commands to new group.
-	for i := 0; i < 50; i++ {
+	for i := 0; i < loopNum; i++ {
 		cfg.one(rand.Int(), 3, true)
 	}
 
@@ -538,7 +539,7 @@ func TestBackup3B(t *testing.T) {
 	cfg.disconnect(other)
 
 	// lots more commands that won't commit
-	for i := 0; i < 50; i++ {
+	for i := 0; i < loopNum; i++ {
 		cfg.rafts[leader2].Start(rand.Int())
 	}
 
@@ -553,7 +554,7 @@ func TestBackup3B(t *testing.T) {
 	cfg.connect(other)
 
 	// lots of successful commands to new group.
-	for i := 0; i < 50; i++ {
+	for i := 0; i < loopNum; i++ {
 		cfg.one(rand.Int(), 3, true)
 	}
 

@@ -25,13 +25,24 @@ func init() {
 	} else {
 		now := time.Now()
 		// 标准的时间格式化，到秒
-		baseFormat := now.Format("2006_01_02_15_04_05")
+		baseFormat := now.Format("2006-01-02-15-04-05")
 		// 获取纳秒部分并转换为微秒
 		microseconds := now.Nanosecond() / 1000
 		// 组合成最终的时间戳字符串
 		timestamp := fmt.Sprintf("%s_%06d", baseFormat, microseconds)
 
-		filename := fmt.Sprintf("./logs/log_%s.txt", timestamp)
+		logDir := "./logs"
+		value, exists := os.LookupEnv("RAFT_LOG_DIR") // 注意：从 Go 1.17 开始，推荐使用 LookupEnv
+		if exists {
+			logDir = value
+			if err := os.MkdirAll(logDir, 0755); err != nil {
+				fmt.Println("Error creating log directory:", err)
+				return
+			}
+		}
+		filename := fmt.Sprintf("%s/log_%s.txt", logDir, timestamp)
+		fmt.Printf("filename: %s\n", filename)
+
 		file, err := os.OpenFile(
 			filename,
 			os.O_APPEND|os.O_WRONLY|os.O_CREATE|os.O_EXCL,

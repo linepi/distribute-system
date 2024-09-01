@@ -576,6 +576,11 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 3B tests.
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
+	for _, r := range cfg.rafts {
+		Log.Printf("p%v connected?%v\n", r.me, cfg.connected[r.me])
+		r.GetState()
+	}
+	Log.Printf("one(%v, %v, %v)\n", cmd, expectedServers, retry)
 	t0 := time.Now()
 	starts := 0
 	for time.Since(t0).Seconds() < 10 && cfg.checkFinished() == false {
@@ -608,6 +613,7 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 					// committed
 					if cmd1 == cmd {
 						// and it was the command we submitted.
+						Log.Printf("ret one(%v, %v, %v) -> %v\n", cmd, expectedServers, retry, index)
 						return index
 					}
 				}
