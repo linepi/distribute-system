@@ -1,37 +1,89 @@
 #!/bin/bash
 
+if [[ "$RAFT_TEST" == "" ]]; then
+  RAFT_TEST=3A
+fi
+if [[ "$RAFT_RUN_TIME" == "" ]]; then
+  RAFT_RUN_TIME=30
+fi
+if [[ "$RAFT_PARALLEL" == "" ]]; then
+  RAFT_PARALLEL=4
+fi
+if [[ "$RAFT_STOP_ON_FAIL" == "" ]]; then
+  RAFT_STOP_ON_FAIL=true
+fi
+if [[ "$RAFT_TIME_OUT" == "" ]]; then
+  RAFT_TIME_OUT=300
+fi
+
 # 最大运行时间（秒）
-MAX_DURATION=$((60 * 30))
+MAX_DURATION=$((RAFT_RUN_TIME))
 
 # 开始时间
 START_TIME=$(date +%s)
 
 finish=0
-parallel=2
+parallel=$RAFT_PARALLEL
 batch_id=batch$(date '+%Y-%m-%d-%H-%M-%S')
 batch_log_dir=./logs/${batch_id}
+mkdir -p "$batch_log_dir"
 program=/tmp/raft-"$batch_id"
 
 loopi=1
 
+# 数据
+res_success=0
+res_fail=0
+res_timeout=0
+timeout_logfiles=""
+fail_logfiles=""
+
 # 运行命令的函数
 run_command() {
-    echo "-------------- loop ${loopi} -------------------"
+    # echo "-------------- loop ${loopi} -------------------"
     for ((i=1; i<=parallel; i++)); do
-      # go test -run TestReElection3A >> "$LOG_FILE" 2>&1
-      # go test -run TestManyElections3A >> "$LOG_FILE" 2>&1
-      # echo "RAFT_LOG_DIR=${batch_log_dir} ${program} -test.run 3B >> /dev/null 2>&1 &"
-      RAFT_LOG_DIR=$batch_log_dir ${program} -test.run 3B &
+        timeout "$RAFT_TIME_OUT" env RAFT_LOG_DIR="$batch_log_dir" "$program" -test.run "$RAFT_TEST" > \
+            "$batch_log_dir/stdout_$i.txt" 2>&1 &
+        pid=$!
+        # 将 PID 和对应的任务标识存储到一个数组中
+        pid_array[i]=$pid
     done
 
-    wait
+    # 等待所有后台任务完成
+    for ((i=1; i<=parallel; i++)); do
+        wait "${pid_array[$i]}"
+
+        stdout_file="$batch_log_dir/stdout_$i.txt"
+        log_file_line=$(head -n 1 < "$stdout_file")
+        log_file=${log_file_line:10}
+
+        exit_status=$?
+        if [ $exit_status -eq 124 ]; then
+            ((res_timeout+=1))
+            timeout_logfiles="$timeout_logfiles\n$log_file"
+            continue
+        fi
+
+        rg_out=$(rg "FAIL|debug.Stack" "$stdout_file")
+        if [[ "$rg_out" != "" ]]; then
+          ((res_fail+=1))
+          fail_logfiles="$fail_logfiles\n$log_file"
+          if [[ "$RAFT_STOP_ON_FAIL" == "true" ]]; then
+            echo "@STOP ON FAIL, output:"
+            cat "$stdout_file"
+            finish=1
+            break
+          fi
+        else
+          ((res_success+=1))
+        fi
+    done
 
     # 检查是否超过最大运行时间
     CURRENT_TIME=$(date +%s)
     ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
 
     if [ "$ELAPSED_TIME" -ge "$MAX_DURATION" ]; then
-        echo "Maximum duration exceeded. Exiting."
         finish=1
     fi
     ((loopi+=1))
@@ -41,12 +93,20 @@ run_command() {
 go test -c -race -o "${program}"
 while [ $finish -eq 0 ]; do
     run_command
-    out=$(rg "FAIL|debug.Stack" "${batch_log_dir}")
-    if [[ "$out" -ne "" ]]; then
-      echo "FAIL, output:"
-      echo out
-      break
-    fi
 done
 
+rm "$batch_log_dir"/stdout_*.txt
 
+echo "--------------- end ---------------------"
+echo "loop: $loopi, parallel: $RAFT_PARALLEL, test: $RAFT_TEST"
+echo "success: $res_success, fail: $res_fail, timeout: $res_timeout"
+
+if [ $res_timeout -ne 0 ]; then
+  echo "@timeout logfiles"
+  echo -e "$timeout_logfiles"
+fi
+
+if [ $res_fail -ne 0 ]; then
+  echo "@fail logfiles"
+  echo -e "$fail_logfiles"
+fi

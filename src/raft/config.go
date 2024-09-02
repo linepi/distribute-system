@@ -214,7 +214,6 @@ func (cfg *config) ingestSnap(i int, snapshot []byte, index int) string {
 	var xlog []interface{}
 	if d.Decode(&lastIncludedIndex) != nil ||
 		d.Decode(&xlog) != nil {
-		log.Fatalf("snapshot decode error")
 		return "snapshot Decode() error"
 	}
 	if index != -1 && index != lastIncludedIndex {
@@ -248,7 +247,8 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 			cfg.mu.Unlock()
 		} else if m.CommandValid {
 			if m.CommandIndex != cfg.lastApplied[i]+1 {
-				err_msg = fmt.Sprintf("server %v apply out of order, expected index %v, got %v", i, cfg.lastApplied[i]+1, m.CommandIndex)
+				err_msg = fmt.Sprintf("server %v apply out of order, expected index %v, got %v",
+					i, cfg.lastApplied[i]+1, m.CommandIndex)
 			}
 
 			if err_msg == "" {
@@ -271,6 +271,7 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 				e.Encode(m.CommandIndex)
 				var xlog []interface{}
 				for j := 0; j <= m.CommandIndex; j++ {
+					// why j can be zero here? (question from checkLogs)
 					xlog = append(xlog, cfg.logs[i][j])
 				}
 				e.Encode(xlog)
@@ -354,7 +355,7 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 }
 
 func (cfg *config) checkTimeout() {
-	// enforce a two minute real-time limit on each test
+	// enforce a two-minute real-time limit on each test
 	if !cfg.t.Failed() && time.Since(cfg.start) > 120*time.Second {
 		cfg.t.Fatal("test took longer than 120 seconds")
 	}

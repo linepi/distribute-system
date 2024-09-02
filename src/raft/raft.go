@@ -18,9 +18,7 @@ package raft
 //
 
 import (
-	"6.5840/labgob"
 	"6.5840/labrpc"
-	"bytes"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -125,12 +123,61 @@ type Raft struct {
 	nextIndex []int
 	// for each server, index of highest log entry known to be replicated on server
 	matchIndex []int
+
+	/* snapshot */
+	snapshot          []byte
+	snapshotLastIndex int
+	snapshotLastTerm  int
 }
 
-type Persistant struct {
+type Persistence struct {
+	CurrentTerm       int
+	VotedFor          int
+	Log               []logEntry
+	SnapShot          []byte
+	SnapShotLastIndex int
+	SnapShotLastTerm  int
+}
+
+type PersistentState struct {
 	CurrentTerm int
 	VotedFor    int
 	Log         []logEntry
+}
+
+type PersistentSnapShot struct {
+	Byte      []byte
+	LastIndex int
+	LastTerm  int
+}
+
+func (rf *Raft) newPersistant() Persistence {
+	rf.muLog.RLock()
+	defer rf.muLog.RUnlock()
+	return Persistence{
+		rf.getTerm(),
+		rf.getVotedFor(),
+		rf.log,
+		rf.snapshot,
+		rf.snapshotLastIndex,
+		rf.snapshotLastTerm,
+	}
+}
+
+func (p *Persistence) state() PersistentState {
+	return PersistentState{
+		p.CurrentTerm,
+		p.VotedFor,
+		p.Log,
+	}
+}
+
+func (p *Persistence) snapshot() PersistentSnapShot {
+	return PersistentSnapShot{
+		p.SnapShot,
+		p.SnapShotLastIndex,
+		p.SnapShotLastTerm,
+	}
 }
 
 type logEntry struct {
@@ -228,35 +275,38 @@ func (rf *Raft) GetState() (int, bool) {
 // second argument to persister.Save().
 // after you've implemented snapshots, pass the current snapshot
 // (or nil if there's not yet a snapshot).
-func (rf *Raft) persist(persistant Persistant) {
-	w := new(bytes.Buffer)
-	e := labgob.NewEncoder(w)
-	err := e.Encode(persistant)
-	if err != nil {
-		Log.Printf("persist err: %v", err)
-		return
-	}
-	raftstate := w.Bytes()
-	rf.persister.Save(raftstate, nil)
+//
+// NO lock is needed
+func (rf *Raft) persist(persistence Persistence) {
+	rf.persister.Save(
+		toByte(persistence.state()),
+		toByte(persistence.snapshot()),
+	)
 }
 
 // restore previously persisted state.
-func (rf *Raft) readPersist(data []byte) {
-	if data == nil || len(data) < 1 { // bootstrap without any state?
+// need muLog Lock
+func (rf *Raft) readPersist(rstate []byte, rsnapshot []byte) {
+	if rstate == nil || len(rstate) < 1 { // bootstrap without any state?
 		return
 	}
-	r := bytes.NewBuffer(data)
-	d := labgob.NewDecoder(r)
-	var persistant Persistant
-	if d.Decode(&persistant) != nil {
-		Log.Printf("readPersist err: %v", d)
-	} else {
-		rf.setTerm(persistant.CurrentTerm)
-		rf.setVotedFor(persistant.VotedFor)
-		rf.muLog.Lock()
-		rf.log = persistant.Log
-		rf.muLog.Unlock()
+	if rsnapshot == nil || len(rsnapshot) < 1 { // bootstrap without any state?
+		return
 	}
+	var state PersistentState
+	var snapshot PersistentSnapShot
+
+	fromByte(rstate, &state)
+	fromByte(rsnapshot, &snapshot)
+
+	rf.setTerm(state.CurrentTerm)
+	rf.setVotedFor(state.VotedFor)
+	rf.muLog.Lock()
+	rf.log = state.Log
+	rf.snapshot = snapshot.Byte
+	rf.snapshotLastIndex = snapshot.LastIndex
+	rf.snapshotLastTerm = snapshot.LastTerm
+	rf.muLog.Unlock()
 }
 
 // Snapshot the service says it has created a snapshot that has
@@ -265,7 +315,25 @@ func (rf *Raft) readPersist(data []byte) {
 // that index. Raft should now trim its log as much as possible.
 func (rf *Raft) Snapshot(index int, snapshot []byte) {
 	// Your code here (3D).
-
+	rf.muLog.Lock()
+	defer rf.muLog.Unlock()
+	rf.snapshot = snapshot
+	rf.snapshotLastIndex = index
+	rf.snapshotLastTerm = rf.log[index-1].Term
+	if index == len(rf.log) {
+		rf.log = []logEntry{}
+	} else {
+		// index-1+1 = index
+		rf.log = append(rf.log[index:])
+	}
+	rf.persist(Persistence{
+		rf.getTerm(),
+		rf.getVotedFor(),
+		rf.log,
+		rf.snapshot,
+		rf.snapshotLastIndex,
+		rf.snapshotLastTerm,
+	})
 }
 
 // RequestVoteArgs example RequestVote RPC arguments structure.
@@ -332,7 +400,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			rf.basicInfo(), args)
 		rf.setTerm(args.Term) // INFO Page4, Rules for Servers
 		rf.setVotedFor(-1)
-		rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.getLogs()})
+		rf.persist(rf.newPersistant())
 		rf.setState(Follower)
 	}
 
@@ -462,7 +530,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			rf.basicInfo(), args)
 		rf.setTerm(args.Term)
 		rf.setVotedFor(-1)
-		rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.getLogs()})
+		rf.persist(rf.newPersistant())
 		rf.setState(Follower)
 	}
 	rf.setTimeoutVal()
@@ -499,7 +567,16 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	lastLog := rf.log
 	rf.log = append(rf.log[:args.PrevLogIndex])
 	rf.log = append(rf.log, args.Entries...)
-	rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.log})
+
+	rf.persist(Persistence{
+		rf.getTerm(),
+		rf.getVotedFor(),
+		rf.log,
+		rf.snapshot,
+		rf.snapshotLastIndex,
+		rf.snapshotLastTerm,
+	})
+
 	// Log.Printf("[%v] log update from %v to %v\n", rf.basicInfo(), lastLog, rf.Log)
 	Log.Printf("[%v] log length from %v to %v\n", rf.basicInfo(), len(lastLog), len(rf.log))
 
@@ -572,7 +649,16 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	index := len(rf.log) + 1
 	rf.log = append(rf.log, logEntry{command, rf.currentTerm})
-	rf.persist(Persistant{rf.currentTerm, rf.votedFor, rf.log})
+
+	rf.persist(Persistence{
+		rf.currentTerm,
+		rf.votedFor,
+		rf.log,
+		rf.snapshot,
+		rf.snapshotLastIndex,
+		rf.snapshotLastTerm,
+	})
+
 	basicInfo := fmt.Sprintf("p%v-t%v-%v", rf.me, rf.currentTerm, rf.currentState)
 	Log.Printf("[%v] Start(%v) -> (index:%v,term:%v,isLeader:%v)",
 		basicInfo, command, index, rf.currentTerm, isLeader)
@@ -602,7 +688,7 @@ func (rf *Raft) election() {
 	rf.setTerm(rf.getTerm() + 1)
 	rf.setTimeoutVal()
 	rf.setVotedFor(rf.me)
-	rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.getLogs()})
+	rf.persist(rf.newPersistant())
 
 	var wg sync.WaitGroup
 	finish := make(chan bool, len(rf.peers)-1)
@@ -674,7 +760,7 @@ func (rf *Raft) election() {
 					rf.setTerm(reply.Term)
 					rf.setState(Follower)
 					rf.setVotedFor(-1)
-					rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.getLogs()})
+					rf.persist(rf.newPersistant())
 				} else if reply.VoteGranted {
 					votedNum++
 					if votedNum == len(rf.peers)/2+1 {
@@ -759,7 +845,7 @@ func (rf *Raft) doLeader() {
 					rf.setTerm(msg.reply.Term)
 					rf.setState(Follower)
 					rf.setVotedFor(-1)
-					rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.getLogs()})
+					rf.persist(rf.newPersistant())
 					rf.mu.Unlock()
 					break
 				}
@@ -876,7 +962,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.lastApplied = 0
 
 	// initialize from state persisted before a crash
-	rf.readPersist(persister.ReadRaftState())
+	rf.readPersist(persister.ReadRaftState(), persister.ReadSnapshot())
 
 	// start ticker goroutine to start elections
 	go rf.ticker()
