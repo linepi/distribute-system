@@ -45,12 +45,12 @@ func init() {
 		if exists {
 			logDir = value
 			if err := os.MkdirAll(logDir, 0755); err != nil {
-				fmt.Println("Error creating log directory:", err)
+				fmt.Println("Error creating Log directory:", err)
 				return
 			}
 		}
 		filename := fmt.Sprintf("%s/log_%s.txt", logDir, timestamp)
-		fmt.Printf("log path: %s\n", filename)
+		fmt.Printf("Log path: %s\n", filename)
 
 		file, err := os.OpenFile(
 			filename,

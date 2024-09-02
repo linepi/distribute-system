@@ -18,7 +18,9 @@ package raft
 //
 
 import (
+	"6.5840/labgob"
 	"6.5840/labrpc"
+	"bytes"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -125,6 +127,12 @@ type Raft struct {
 	matchIndex []int
 }
 
+type Persistant struct {
+	CurrentTerm int
+	VotedFor    int
+	Log         []logEntry
+}
+
 type logEntry struct {
 	Cmd  interface{}
 	Term int
@@ -179,16 +187,16 @@ func (rf *Raft) setTimeoutVal() {
 	rf.timeoutVal = PeerTimeoutInterval.new()
 }
 
-func (rf *Raft) addLog(le logEntry) {
-	rf.muLog.Lock()
-	defer rf.muLog.Unlock()
-	rf.log = append(rf.log, le)
-}
-
 func (rf *Raft) getLog(i int) logEntry {
 	rf.muLog.RLock()
 	defer rf.muLog.RUnlock()
 	return rf.log[i-1]
+}
+
+func (rf *Raft) getLogs() []logEntry {
+	rf.muLog.RLock()
+	defer rf.muLog.RUnlock()
+	return rf.log
 }
 
 func (rf *Raft) getLastLog() logEntry {
@@ -203,12 +211,14 @@ func (rf *Raft) getLastLogIndex() int {
 	return len(rf.log)
 }
 
-// GetState return currentTerm and whether this server
+// GetState return CurrentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
+	rf.muCom.RLock()
+	defer rf.muCom.RUnlock()
 	Log.Printf("GetState[%v](T: %v, State: %v)\n",
-		rf.me, rf.getTerm(), rf.getState())
-	return rf.getTerm(), rf.getState() == Leader
+		rf.me, rf.currentTerm, rf.currentState)
+	return rf.currentTerm, rf.currentState == Leader
 }
 
 // save Raft's persistent state to stable storage,
@@ -218,15 +228,16 @@ func (rf *Raft) GetState() (int, bool) {
 // second argument to persister.Save().
 // after you've implemented snapshots, pass the current snapshot
 // (or nil if there's not yet a snapshot).
-func (rf *Raft) persist() {
-	// Your code here (3C).
-	// Example:
-	// w := new(bytes.Buffer)
-	// e := labgob.NewEncoder(w)
-	// e.Encode(rf.xxx)
-	// e.Encode(rf.yyy)
-	// raftstate := w.Bytes()
-	// rf.persister.Save(raftstate, nil)
+func (rf *Raft) persist(persistant Persistant) {
+	w := new(bytes.Buffer)
+	e := labgob.NewEncoder(w)
+	err := e.Encode(persistant)
+	if err != nil {
+		Log.Printf("persist err: %v", err)
+		return
+	}
+	raftstate := w.Bytes()
+	rf.persister.Save(raftstate, nil)
 }
 
 // restore previously persisted state.
@@ -234,19 +245,18 @@ func (rf *Raft) readPersist(data []byte) {
 	if data == nil || len(data) < 1 { // bootstrap without any state?
 		return
 	}
-	// Your code here (3C).
-	// Example:
-	// r := bytes.NewBuffer(data)
-	// d := labgob.NewDecoder(r)
-	// var xxx
-	// var yyy
-	// if d.Decode(&xxx) != nil ||
-	//    d.Decode(&yyy) != nil {
-	//   error...
-	// } else {
-	//   rf.xxx = xxx
-	//   rf.yyy = yyy
-	// }
+	r := bytes.NewBuffer(data)
+	d := labgob.NewDecoder(r)
+	var persistant Persistant
+	if d.Decode(&persistant) != nil {
+		Log.Printf("readPersist err: %v", d)
+	} else {
+		rf.setTerm(persistant.CurrentTerm)
+		rf.setVotedFor(persistant.VotedFor)
+		rf.muLog.Lock()
+		rf.log = persistant.Log
+		rf.muLog.Unlock()
+	}
 }
 
 // Snapshot the service says it has created a snapshot that has
@@ -294,7 +304,7 @@ func (args RequestVoteReply) String() string {
 	return fmt.Sprintf("{otherT: %v, Voted: %v}", args.Term, args.VoteGranted)
 }
 
-func (rf *Raft) NewRequestVoteArgs(i int) RequestVoteArgs {
+func (rf *Raft) NewRequestVoteArgs(_ int) RequestVoteArgs {
 	rf.muLog.RLock()
 	lastLogTerm := 0
 	lastLogIndex := len(rf.log)
@@ -322,6 +332,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 			rf.basicInfo(), args)
 		rf.setTerm(args.Term) // INFO Page4, Rules for Servers
 		rf.setVotedFor(-1)
+		rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.getLogs()})
 		rf.setState(Follower)
 	}
 
@@ -419,7 +430,7 @@ func (args AppendEntriesReply) String() string {
 func (rf *Raft) NewAppendEntriesArgs(i int) AppendEntriesArgs {
 	rf.muLog.RLock()
 	nextIndex := rf.nextIndex[i]
-	entries := []logEntry{}
+	var entries []logEntry
 	if nextIndex <= len(rf.log) {
 		entries = append(entries, rf.log[nextIndex-1:]...)
 	}
@@ -451,6 +462,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			rf.basicInfo(), args)
 		rf.setTerm(args.Term)
 		rf.setVotedFor(-1)
+		rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.getLogs()})
 		rf.setState(Follower)
 	}
 	rf.setTimeoutVal()
@@ -487,7 +499,8 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	lastLog := rf.log
 	rf.log = append(rf.log[:args.PrevLogIndex])
 	rf.log = append(rf.log, args.Entries...)
-	// Log.Printf("[%v] log update from %v to %v\n", rf.basicInfo(), lastLog, rf.log)
+	rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.log})
+	// Log.Printf("[%v] log update from %v to %v\n", rf.basicInfo(), lastLog, rf.Log)
 	Log.Printf("[%v] log length from %v to %v\n", rf.basicInfo(), len(lastLog), len(rf.log))
 
 	if args.LeaderCommit > rf.commitIndex {
@@ -548,10 +561,10 @@ func (rf *Raft) applyMsg(msg ApplyMsg) {
 //
 // Return commitedIndex, currentTerm, isLeader
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	rf.muCom.Lock()
 	rf.muLog.Lock()
-	defer rf.muCom.Unlock()
+	rf.muCom.Lock()
 	defer rf.muLog.Unlock()
+	defer rf.muCom.Unlock()
 	isLeader := rf.currentState == Leader
 	if rf.killed() || !isLeader {
 		return 0, 0, false
@@ -559,6 +572,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 
 	index := len(rf.log) + 1
 	rf.log = append(rf.log, logEntry{command, rf.currentTerm})
+	rf.persist(Persistant{rf.currentTerm, rf.votedFor, rf.log})
 	basicInfo := fmt.Sprintf("p%v-t%v-%v", rf.me, rf.currentTerm, rf.currentState)
 	Log.Printf("[%v] Start(%v) -> (index:%v,term:%v,isLeader:%v)",
 		basicInfo, command, index, rf.currentTerm, isLeader)
@@ -588,6 +602,7 @@ func (rf *Raft) election() {
 	rf.setTerm(rf.getTerm() + 1)
 	rf.setTimeoutVal()
 	rf.setVotedFor(rf.me)
+	rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.getLogs()})
 
 	var wg sync.WaitGroup
 	finish := make(chan bool, len(rf.peers)-1)
@@ -659,6 +674,7 @@ func (rf *Raft) election() {
 					rf.setTerm(reply.Term)
 					rf.setState(Follower)
 					rf.setVotedFor(-1)
+					rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.getLogs()})
 				} else if reply.VoteGranted {
 					votedNum++
 					if votedNum == len(rf.peers)/2+1 {
@@ -743,6 +759,7 @@ func (rf *Raft) doLeader() {
 					rf.setTerm(msg.reply.Term)
 					rf.setState(Follower)
 					rf.setVotedFor(-1)
+					rf.persist(Persistant{rf.getTerm(), rf.getVotedFor(), rf.getLogs()})
 					rf.mu.Unlock()
 					break
 				}
