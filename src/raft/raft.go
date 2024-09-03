@@ -134,21 +134,17 @@ type Persistence struct {
 	CurrentTerm       int
 	VotedFor          int
 	Log               []logEntry
-	SnapShot          []byte
-	SnapShotLastIndex int
-	SnapShotLastTerm  int
+	Snapshot          []byte
+	SnapshotLastIndex int
+	SnapshotLastTerm  int
 }
 
 type PersistentState struct {
-	CurrentTerm int
-	VotedFor    int
-	Log         []logEntry
-}
-
-type PersistentSnapShot struct {
-	Byte      []byte
-	LastIndex int
-	LastTerm  int
+	CurrentTerm       int
+	VotedFor          int
+	Log               []logEntry
+	SnapshotLastIndex int
+	SnapshotLastTerm  int
 }
 
 func (rf *Raft) newPersistant() Persistence {
@@ -169,15 +165,71 @@ func (p *Persistence) state() PersistentState {
 		p.CurrentTerm,
 		p.VotedFor,
 		p.Log,
+		p.SnapshotLastIndex,
+		p.SnapshotLastTerm,
 	}
 }
 
-func (p *Persistence) snapshot() PersistentSnapShot {
-	return PersistentSnapShot{
-		p.SnapShot,
-		p.SnapShotLastIndex,
-		p.SnapShotLastTerm,
+// save Raft's persistent state to stable storage,
+// where it can later be retrieved after a crash and restart.
+// see paper's Figure 2 for a description of what should be persistent.
+// before you've implemented snapshots, you should pass nil as the
+// second argument to persister.Save().
+// after you've implemented snapshots, pass the current snapshot
+// (or nil if there's not yet a snapshot).
+//
+// NO lock is needed
+func (rf *Raft) persist(persistence Persistence) {
+	rf.persister.Save(
+		toByte(persistence.state()),
+		persistence.Snapshot,
+	)
+}
+
+// restore previously persisted state.
+// need muLog Lock
+func (rf *Raft) readPersist(rstate []byte, rsnapshot []byte) {
+	if rstate == nil || len(rstate) < 1 { // bootstrap without any state?
+		return
 	}
+	var state PersistentState
+	fromByte(rstate, &state)
+
+	rf.setTerm(state.CurrentTerm)
+	rf.setVotedFor(state.VotedFor)
+	rf.muLog.Lock()
+	rf.log = state.Log
+	rf.snapshot = rsnapshot
+	rf.snapshotLastIndex = state.SnapshotLastIndex
+	rf.snapshotLastTerm = state.SnapshotLastTerm
+	rf.muLog.Unlock()
+}
+
+// Snapshot the service says it has created a snapshot that has
+// all info up to and including index. this means the
+// service no longer needs the log through (and including)
+// that index. Raft should now trim its log as much as possible.
+func (rf *Raft) Snapshot(index int, snapshot []byte) {
+	// Your code here (3D).
+	rf.muLog.Lock()
+	defer rf.muLog.Unlock()
+	rf.snapshot = snapshot
+	rf.snapshotLastIndex = index
+	rf.snapshotLastTerm = rf.log[index-1].Term
+	if index == len(rf.log) {
+		rf.log = []logEntry{}
+	} else {
+		// index-1+1 = index
+		rf.log = append(rf.log[index:])
+	}
+	rf.persist(Persistence{
+		rf.getTerm(),
+		rf.getVotedFor(),
+		rf.log,
+		rf.snapshot,
+		rf.snapshotLastIndex,
+		rf.snapshotLastTerm,
+	})
 }
 
 type logEntry struct {
@@ -266,74 +318,6 @@ func (rf *Raft) GetState() (int, bool) {
 	Log.Printf("GetState[%v](T: %v, State: %v)\n",
 		rf.me, rf.currentTerm, rf.currentState)
 	return rf.currentTerm, rf.currentState == Leader
-}
-
-// save Raft's persistent state to stable storage,
-// where it can later be retrieved after a crash and restart.
-// see paper's Figure 2 for a description of what should be persistent.
-// before you've implemented snapshots, you should pass nil as the
-// second argument to persister.Save().
-// after you've implemented snapshots, pass the current snapshot
-// (or nil if there's not yet a snapshot).
-//
-// NO lock is needed
-func (rf *Raft) persist(persistence Persistence) {
-	rf.persister.Save(
-		toByte(persistence.state()),
-		toByte(persistence.snapshot()),
-	)
-}
-
-// restore previously persisted state.
-// need muLog Lock
-func (rf *Raft) readPersist(rstate []byte, rsnapshot []byte) {
-	if rstate == nil || len(rstate) < 1 { // bootstrap without any state?
-		return
-	}
-	if rsnapshot == nil || len(rsnapshot) < 1 { // bootstrap without any state?
-		return
-	}
-	var state PersistentState
-	var snapshot PersistentSnapShot
-
-	fromByte(rstate, &state)
-	fromByte(rsnapshot, &snapshot)
-
-	rf.setTerm(state.CurrentTerm)
-	rf.setVotedFor(state.VotedFor)
-	rf.muLog.Lock()
-	rf.log = state.Log
-	rf.snapshot = snapshot.Byte
-	rf.snapshotLastIndex = snapshot.LastIndex
-	rf.snapshotLastTerm = snapshot.LastTerm
-	rf.muLog.Unlock()
-}
-
-// Snapshot the service says it has created a snapshot that has
-// all info up to and including index. this means the
-// service no longer needs the log through (and including)
-// that index. Raft should now trim its log as much as possible.
-func (rf *Raft) Snapshot(index int, snapshot []byte) {
-	// Your code here (3D).
-	rf.muLog.Lock()
-	defer rf.muLog.Unlock()
-	rf.snapshot = snapshot
-	rf.snapshotLastIndex = index
-	rf.snapshotLastTerm = rf.log[index-1].Term
-	if index == len(rf.log) {
-		rf.log = []logEntry{}
-	} else {
-		// index-1+1 = index
-		rf.log = append(rf.log[index:])
-	}
-	rf.persist(Persistence{
-		rf.getTerm(),
-		rf.getVotedFor(),
-		rf.log,
-		rf.snapshot,
-		rf.snapshotLastIndex,
-		rf.snapshotLastTerm,
-	})
 }
 
 // RequestVoteArgs example RequestVote RPC arguments structure.
