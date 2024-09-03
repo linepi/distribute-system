@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 	"time"
 )
 
@@ -15,6 +16,7 @@ const stdout = false
 
 func Assert(cond bool, reason string) {
 	if !cond {
+		Log.Printf("%s\n", debug.Stack())
 		log.Panicf("Assert fail: %v\n", reason)
 	}
 }
