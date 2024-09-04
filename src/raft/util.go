@@ -16,9 +16,15 @@ const stdout = false
 
 func Assert(cond bool, reason string) {
 	if !cond {
-		Log.Printf("%s\n", debug.Stack())
-		log.Panicf("Assert fail: %v\n", reason)
+		Log.Printf("Assert Failed: %s\n", debug.Stack())
+		if len(reason) > 0 {
+			log.Panicf("Reason: %v\n", reason)
+		}
 	}
+}
+
+func Panic() {
+	Assert(false, "Panic")
 }
 
 func cmd2str(cmd interface{}) string {
