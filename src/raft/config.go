@@ -164,7 +164,10 @@ func (cfg *config) checkLogs(i int, m ApplyMsg) (string, bool) {
 	v := m.Command
 	for j := 0; j < len(cfg.logs); j++ {
 		if old, oldok := cfg.logs[j][m.CommandIndex]; oldok && old != v {
-			log.Printf("%v: Log %v; server %v\n", i, cfg.logs[i], cfg.logs[j])
+			log.Printf("When peer %v apply %v:\n", i, m)
+			log.Printf("find another peer %v's command is %v\n", j, old)
+			log.Printf("peer %v's log: %v\n", i, cfg.logs[i])
+			log.Printf("peer %v's log: %v\n", j, cfg.logs[j])
 			// some server has already committed a different value for this entry!
 			err_msg = fmt.Sprintf("commit index=%v server=%v %v != server=%v %v",
 				m.CommandIndex, i, m.Command, j, old)

@@ -9,8 +9,8 @@ fi
 if [[ "$RAFT_PARALLEL" == "" ]]; then
   RAFT_PARALLEL=4
 fi
-if [[ "$RAFT_STOP_ON_FAIL" == "" ]]; then
-  RAFT_STOP_ON_FAIL=true
+if [[ "$RAFT_STOP_FAIL_RATE" == "" ]]; then
+  RAFT_STOP_FAIL_RATE=100
 fi
 if [[ "$RAFT_TIME_OUT" == "" ]]; then
   RAFT_TIME_OUT=300
@@ -29,15 +29,18 @@ batch_log_dir=./logs/${batch_id}
 mkdir -p "$batch_log_dir"
 program=/tmp/raft-"$batch_id"
 
-loopi=1
+loopi=0
 
 # 数据
 res_success=0
 res_fail=0
 res_timeout=0
+res_all=0
 timeout_logfiles=""
 fail_logfiles=""
+success_logfiles=""
 
+printf "runned: 0"
 # 运行命令的函数
 run_command() {
     # echo "-------------- loop ${loopi} -------------------"
@@ -53,6 +56,9 @@ run_command() {
     for ((i=1; i<=parallel; i++)); do
         wait "${pid_array[$i]}"
 
+        ((res_all+=1))
+        printf "\rrunned: %d, suc: %d" "$res_all" "$res_success"
+
         stdout_file="$batch_log_dir/stdout_$i.txt"
         log_file_line=$(head -n 1 < "$stdout_file")
         log_file=${log_file_line:10}
@@ -64,18 +70,21 @@ run_command() {
             continue
         fi
 
-        rg_out=$(rg "FAIL|debug.Stack" "$stdout_file")
+        rg_out=$(rg "runtime/debug.Stack" "$stdout_file")
         if [[ "$rg_out" != "" ]]; then
           ((res_fail+=1))
           fail_logfiles="$fail_logfiles\n$log_file"
-          if [[ "$RAFT_STOP_ON_FAIL" == "true" ]]; then
-            echo "@STOP ON FAIL, output:"
-            cat "$stdout_file"
+          # (res_all-res_success)/res_all > $RAFT_STOP_FAIL_RATE/100
+          t1=$((res_all*RAFT_STOP_FAIL_RATE))
+          t2=$((100*(res_all-res_success)))
+          if [[ t2 -gt t1 ]]; then
+            echo "STOP FAIL RATE REACH"
             finish=1
             break
           fi
         else
           ((res_success+=1))
+          success_logfiles="$success_logfiles $log_file"
         fi
     done
 
@@ -96,7 +105,14 @@ while [ $finish -eq 0 ]; do
 done
 
 rm "$batch_log_dir"/stdout_*.txt
+sleep 1
+success_logfiles=("$success_logfiles")
+# shellcheck disable=SC2128
+for file in $success_logfiles; do
+  rm "$file"
+done
 
+printf "\r"
 echo "--------------- end ---------------------"
 echo "loop: $loopi, parallel: $RAFT_PARALLEL, test: $RAFT_TEST"
 echo "success: $res_success, fail: $res_fail, timeout: $res_timeout"

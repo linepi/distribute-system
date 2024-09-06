@@ -902,8 +902,8 @@ func TestFigure8Unreliable3C(t *testing.T) {
 	cfg.one(rand.Int()%10000, 1, true)
 
 	nup := servers
-	for iters := 0; iters < 400; iters++ {
-		if iters == 80 {
+	for iters := 0; iters < 1000; iters++ {
+		if iters == 200 {
 			cfg.setlongreordering(true)
 		}
 		leader := -1
