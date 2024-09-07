@@ -1,8 +1,10 @@
 #!/bin/bash
 
+RAFT_TEST_PARAMETER="$RAFT_TEST"
 if [[ "$RAFT_TEST" == "" ]]; then
-  RAFT_TEST=3A
+  RAFT_TEST="all"
 fi
+
 if [[ "$RAFT_RUN_TIME" == "" ]]; then
   RAFT_RUN_TIME=30
 fi
@@ -47,7 +49,7 @@ run_command() {
     # echo "-------------- loop ${loopi} -------------------"
     running=0
     for ((i=1; i<=parallel; i++)); do
-        timeout "$RAFT_TIME_OUT" env RAFT_LOG_DIR="$batch_log_dir" "$program" -test.run "$RAFT_TEST" > \
+        timeout "$RAFT_TIME_OUT" env RAFT_LOG_DIR="$batch_log_dir" "$program" -test.run "$RAFT_TEST_PARAMETER" > \
             "$batch_log_dir/stdout_$i.txt" 2>&1 &
         pid=$!
         # 将 PID 和对应的任务标识存储到一个数组中

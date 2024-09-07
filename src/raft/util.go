@@ -12,7 +12,7 @@ import (
 
 var Log *log.Logger
 
-const stdout = false
+var stdout = false
 
 func Assert(cond bool, reason string) {
 	if !cond {
@@ -55,6 +55,10 @@ func fromByte(bs []byte, i interface{}) {
 }
 
 func init() {
+	if os.Getenv("RAFT_STDOUT") != "" {
+		stdout = true
+	}
+
 	flags := log.Ltime | log.Lmicroseconds | log.Lshortfile
 	// 初始化 Logger
 	if stdout {

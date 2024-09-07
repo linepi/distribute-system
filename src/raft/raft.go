@@ -11,6 +11,8 @@ package raft
 //   start agreement on a new log entry
 // rf.GetState() (term, isLeader)
 //   ask a Raft for its current term, and whether it thinks it is leader
+// rf.Snapshot() (index int, snapshot []byte)
+//   give raft a snapshot as a mark of logs before(include) index
 // ApplyMsg
 //   each time a new entry is committed to the log, each Raft peer
 //   should send an ApplyMsg to the service (or tester)
@@ -128,10 +130,9 @@ type Raft struct {
 	snapshot          []byte
 	snapshotLastIndex int
 	snapshotLastTerm  int
-}
 
-type InstallSnapshotTemp struct {
-	data []byte
+	// global channel for waking up rpc senders
+	wakeups []chan bool
 }
 
 type Persistence struct {
@@ -901,7 +902,9 @@ func (rf *Raft) election() {
 }
 
 // need muLog.Lock()
-func (rf *Raft) leaderUpdateCommit() {
+// return isUpdated
+func (rf *Raft) leaderUpdateCommit() bool {
+	isUpdated := false
 	// update commitIndex and apply cmd to state machine
 	for i := len(rf.log) + rf.snapshotLastIndex; i > rf.commitIndex; i-- {
 		if len(rf.log) != 0 && rf.log[i-rf.snapshotLastIndex-1].Term == rf.getTerm() {
@@ -926,6 +929,7 @@ func (rf *Raft) leaderUpdateCommit() {
 							true, cmd, j,
 							false, nil, 0, 0})
 						rf.muLog.Lock()
+						isUpdated = true
 					}
 					rf.lastApplied = rf.commitIndex
 				}
@@ -933,6 +937,7 @@ func (rf *Raft) leaderUpdateCommit() {
 			}
 		}
 	}
+	return isUpdated
 }
 
 // wg is used to help caller know if this function it's done
@@ -953,10 +958,14 @@ func (rf *Raft) leaderOnAppendEntriesReply(msg *AppendEntriesWrapper) {
 	rf.muLog.Lock()
 	defer rf.muLog.Unlock()
 
+	needWakeup := false
 	initialNextIndex := rf.nextIndex[msg.reply.ReceiverId]
 	if msg.reply.Success {
 		rf.nextIndex[msg.reply.ReceiverId] += len(msg.arg.Entries)
 		rf.matchIndex[msg.reply.ReceiverId] = rf.nextIndex[msg.reply.ReceiverId] - 1
+		if rf.nextIndex[msg.reply.ReceiverId] <= rf.snapshotLastIndex+len(rf.log) {
+			needWakeup = true
+		}
 	} else {
 		if !msg.reply.FailInfo.Valid {
 			if rf.nextIndex[msg.reply.ReceiverId] > 1 {
@@ -992,11 +1001,15 @@ func (rf *Raft) leaderOnAppendEntriesReply(msg *AppendEntriesWrapper) {
 				rf.nextIndex[msg.reply.ReceiverId] = nextIndex
 			}
 		}
+		needWakeup = true
 	}
 	Log.Printf("[%v][%v] On AppendEntriesReply nextIndex[%v] from %v to %v\n",
 		rf.basicInfo(), msg.id, msg.reply.ReceiverId, initialNextIndex, rf.nextIndex[msg.reply.ReceiverId])
 	Assert(rf.nextIndex[msg.reply.ReceiverId] > 0, "nextIndex < 1!")
-	rf.leaderUpdateCommit()
+	needWakeup = needWakeup || rf.leaderUpdateCommit()
+	if needWakeup {
+		rf.wakeups[msg.reply.ReceiverId] <- true
+	}
 }
 
 func (rf *Raft) leaderOnInstallSnapshotReply(msg *InstallSnapshotWrapper) {
@@ -1016,6 +1029,7 @@ func (rf *Raft) leaderOnInstallSnapshotReply(msg *InstallSnapshotWrapper) {
 	if rf.nextIndex[reply.ReceiverId] <= args.LastIncludedIndex {
 		rf.nextIndex[reply.ReceiverId] = args.LastIncludedIndex + 1
 		rf.matchIndex[reply.ReceiverId] = rf.nextIndex[reply.ReceiverId] - 1
+		rf.wakeups[msg.reply.ReceiverId] <- true
 	}
 	Log.Printf("[%v][%v] On InstallSnapsthoReply nextIndex[%v] from %v to %v\n",
 		rf.basicInfo(), msg.id, msg.reply.ReceiverId, initialNextIndex, rf.nextIndex[msg.reply.ReceiverId])
@@ -1025,8 +1039,8 @@ func (rf *Raft) leaderOnInstallSnapshotReply(msg *InstallSnapshotWrapper) {
 func (rf *Raft) doLeader() {
 	msgs := make(chan AppendEntriesWrapper, len(rf.peers)-1)
 	ssmsgs := make(chan InstallSnapshotWrapper, len(rf.peers)-1)
-	var wg sync.WaitGroup
 	finish := make(chan bool, len(rf.peers)-1)
+	var wg sync.WaitGroup
 	for i := 0; i < len(rf.peers); i++ {
 		if i == rf.me {
 			continue
@@ -1069,6 +1083,7 @@ func (rf *Raft) doLeader() {
 				select {
 				case <-finish:
 					return
+				case <-rf.wakeups[i]:
 				case <-time.After(AppendEntryInterval.new()):
 				}
 			}
@@ -1158,6 +1173,11 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	rf.commitIndex = rf.snapshotLastIndex
 	rf.lastApplied = rf.snapshotLastIndex
+
+	for i := 0; i < len(rf.peers); i++ {
+		wakeup := make(chan bool, 1)
+		rf.wakeups = append(rf.wakeups, wakeup)
+	}
 
 	// start ticker goroutine to start elections
 	go rf.ticker()
