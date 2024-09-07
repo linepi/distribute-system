@@ -26,6 +26,7 @@ finish=0
 parallel=$RAFT_PARALLEL
 batch_id=batch$(date '+%Y-%m-%d-%H-%M-%S')
 batch_log_dir=./logs/${batch_id}
+echo "batch_log_dir is $batch_log_dir"
 mkdir -p "$batch_log_dir"
 program=/tmp/raft-"$batch_id"
 
@@ -40,24 +41,26 @@ timeout_logfiles=""
 fail_logfiles=""
 success_logfiles=""
 
-printf "runned: 0"
+printf "running: 0, finished: 0, suc: 0"
 # 运行命令的函数
 run_command() {
     # echo "-------------- loop ${loopi} -------------------"
+    running=0
     for ((i=1; i<=parallel; i++)); do
         timeout "$RAFT_TIME_OUT" env RAFT_LOG_DIR="$batch_log_dir" "$program" -test.run "$RAFT_TEST" > \
             "$batch_log_dir/stdout_$i.txt" 2>&1 &
         pid=$!
         # 将 PID 和对应的任务标识存储到一个数组中
         pid_array[i]=$pid
+        ((running+=1))
+        printf "\rrunning: %d, finished: %d, suc: %d" "$running" "$res_all" "$res_success"
     done
 
     # 等待所有后台任务完成
     for ((i=1; i<=parallel; i++)); do
         wait "${pid_array[$i]}"
-
+        ((running-=1))
         ((res_all+=1))
-        printf "\rrunned: %d, suc: %d" "$res_all" "$res_success"
 
         stdout_file="$batch_log_dir/stdout_$i.txt"
         log_file_line=$(head -n 1 < "$stdout_file")
@@ -86,6 +89,7 @@ run_command() {
           ((res_success+=1))
           success_logfiles="$success_logfiles $log_file"
         fi
+        printf "\rrunning: %d, finished: %d, suc: %d" "$running" "$res_all" "$res_success"
     done
 
     # 检查是否超过最大运行时间
@@ -109,7 +113,7 @@ sleep 1
 success_logfiles=("$success_logfiles")
 # shellcheck disable=SC2128
 for file in $success_logfiles; do
-  rm "$file"
+  rm -f "$file"
 done
 
 printf "\r"

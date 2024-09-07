@@ -586,7 +586,7 @@ func (cfg *config) wait(index int, n int, startTerm int) interface{} {
 // if retry==false, calls Start() only once, in order
 // to simplify the early Lab 3B tests.
 func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
-	Log.Printf("one(%v, %v, %v)\n", cmd2str(cmd), expectedServers, retry)
+	Log.Printf("start one(%v, %v, %v)\n", cmd2str(cmd), expectedServers, retry)
 	t0 := time.Now()
 	starts := 0
 	for time.Since(t0).Seconds() < 10 && cfg.checkFinished() == false {
@@ -615,6 +615,7 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 			t1 := time.Now()
 			for time.Since(t1).Seconds() < 2 {
 				nd, cmd1 := cfg.nCommitted(index)
+				Log.Printf("one call nCommited(%v) -> (%v, %v)\n", index, nd, cmd2str(cmd1))
 				if nd > 0 && nd >= expectedServers {
 					// committed
 					if cmd1 == cmd {
