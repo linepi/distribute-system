@@ -43,7 +43,7 @@ timeout_logfiles=""
 fail_logfiles=""
 success_logfiles=""
 
-printf "running: 0, finished: 0, suc: 0"
+printf "running: 0, finished: 0, suc: 0               "
 # 运行命令的函数
 run_command() {
     # echo "-------------- loop ${loopi} -------------------"
@@ -55,7 +55,7 @@ run_command() {
         # 将 PID 和对应的任务标识存储到一个数组中
         pid_array[i]=$pid
         ((running+=1))
-        printf "\rrunning: %d, finished: %d, suc: %d" "$running" "$res_all" "$res_success"
+        printf "\rrunning: %d, finished: %d, suc: %d            " "$running" "$res_all" "$res_success"
     done
 
     # 等待所有后台任务完成
@@ -69,14 +69,13 @@ run_command() {
         log_file=${log_file_line:10}
 
         exit_status=$?
-        if [ $exit_status -eq 124 ]; then
+        if [[ $exit_status -eq 124 ]]; then
             ((res_timeout+=1))
             timeout_logfiles="$timeout_logfiles\n$log_file"
             continue
         fi
 
-        rg_out=$(rg "runtime/debug.Stack" "$stdout_file")
-        if [[ "$rg_out" != "" ]]; then
+        if [[ $exit_status -ne 0 ]]; then
           ((res_fail+=1))
           fail_logfiles="$fail_logfiles\n$log_file"
           # (res_all-res_success)/res_all > $RAFT_STOP_FAIL_RATE/100
@@ -91,7 +90,7 @@ run_command() {
           ((res_success+=1))
           success_logfiles="$success_logfiles $log_file"
         fi
-        printf "\rrunning: %d, finished: %d, suc: %d" "$running" "$res_all" "$res_success"
+        printf "\rrunning: %d, finished: %d, suc: %d             " "$running" "$res_all" "$res_success"
     done
 
     # 检查是否超过最大运行时间

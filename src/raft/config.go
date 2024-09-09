@@ -164,13 +164,14 @@ func (cfg *config) checkLogs(i int, m ApplyMsg) (string, bool) {
 	v := m.Command
 	for j := 0; j < len(cfg.logs); j++ {
 		if old, oldok := cfg.logs[j][m.CommandIndex]; oldok && old != v {
-			log.Printf("When peer %v apply %v:\n", i, m)
-			log.Printf("find another peer %v's command is %v\n", j, old)
-			log.Printf("peer %v's log: %v\n", i, cfg.logs[i])
-			log.Printf("peer %v's log: %v\n", j, cfg.logs[j])
+			Log.Printf("When peer %v apply %v:\n", i, m)
+			Log.Printf("find another peer %v's command is %v\n", j, old)
+			Log.Printf("peer %v's log: %v\n", i, cfg.logs[i])
+			Log.Printf("peer %v's log: %v\n", j, cfg.logs[j])
 			// some server has already committed a different value for this entry!
 			err_msg = fmt.Sprintf("commit index=%v server=%v %v != server=%v %v",
 				m.CommandIndex, i, m.Command, j, old)
+			cfg.Errorf(err_msg)
 		}
 	}
 	_, prevok := cfg.logs[i][m.CommandIndex-1]
@@ -196,7 +197,7 @@ func (cfg *config) applier(i int, applyCh chan ApplyMsg) {
 				err_msg = fmt.Sprintf("server %v apply out of order %v", i, m.CommandIndex)
 			}
 			if err_msg != "" {
-				log.Fatalf("apply error: %v", err_msg)
+				cfg.Errorf("apply error: %v", err_msg)
 				cfg.applyErr[i] = err_msg
 				// keep reading after error so that Raft doesn't block
 				// holding locks...
@@ -284,7 +285,7 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 			// Ignore other types of ApplyMsg.
 		}
 		if err_msg != "" {
-			log.Fatalf("apply error: %v", err_msg)
+			cfg.Errorf("apply error: %v", err_msg)
 			cfg.applyErr[i] = err_msg
 			// keep reading after error so that Raft doesn't block
 			// holding locks...

@@ -1029,7 +1029,10 @@ func (rf *Raft) leaderOnInstallSnapshotReply(msg *InstallSnapshotWrapper) {
 	if rf.nextIndex[reply.ReceiverId] <= args.LastIncludedIndex {
 		rf.nextIndex[reply.ReceiverId] = args.LastIncludedIndex + 1
 		rf.matchIndex[reply.ReceiverId] = rf.nextIndex[reply.ReceiverId] - 1
-		rf.wakeups[msg.reply.ReceiverId] <- true
+		if rf.nextIndex[msg.reply.ReceiverId] <= rf.snapshotLastIndex+len(rf.log) ||
+			rf.leaderUpdateCommit() {
+			rf.wakeups[msg.reply.ReceiverId] <- true
+		}
 	}
 	Log.Printf("[%v][%v] On InstallSnapsthoReply nextIndex[%v] from %v to %v\n",
 		rf.basicInfo(), msg.id, msg.reply.ReceiverId, initialNextIndex, rf.nextIndex[msg.reply.ReceiverId])
@@ -1099,7 +1102,7 @@ func (rf *Raft) doLeader() {
 			if msg.arg.Term != rf.getTerm() {
 				break
 			}
-			rf.leaderOnAppendEntriesReply(&msg)
+			//rf.leaderOnAppendEntriesReply(&msg)
 		case ssmsg := <-ssmsgs:
 			if rf.getState() != Leader || rf.killed() {
 				break
