@@ -61,18 +61,18 @@ func TestReElection3A(t *testing.T) {
 
 	leader1 := cfg.checkOneLeader()
 
-	// if the leader disconnects, a new one should be elected.
+	// if the leader disconnects, a New one should be elected.
 	cfg.disconnect(leader1)
 	cfg.checkOneLeader()
 
 	// if the old leader rejoins, that shouldn't
-	// disturb the new leader. and the old leader
+	// disturb the New leader. and the old leader
 	// should switch to follower.
 	// 这里的一个问题是，重新连接leader1可能在某个小的时间段会出现两个leader.
 	cfg.connect(leader1)
 	leader2 := cfg.checkOneLeader()
 
-	// if there's no quorum, no new leader should
+	// if there's no quorum, no New leader should
 	// be elected.
 	// 而这里又disable了两个peer，可能就恰好剩下单独的一个leader，导致后面不通过.
 	cfg.disconnect(leader2)
@@ -114,7 +114,7 @@ func TestManyElections3A(t *testing.T) {
 		cfg.disconnect(i3)
 
 		// either the current leader should still be alive,
-		// or the remaining four should elect a new one.
+		// or the remaining four should elect a New one.
 		cfg.checkOneLeader()
 
 		cfg.connect(i1)
@@ -243,12 +243,12 @@ func TestLeaderFailure3B(t *testing.T) {
 	cfg.disconnect(leader1)
 
 	// the remaining followers should elect
-	// a new leader.
+	// a New leader.
 	cfg.one(102, servers-1, false)
 	time.Sleep(RaftElectionTimeout)
 	cfg.one(103, servers-1, false)
 
-	// disconnect the new leader.
+	// disconnect the New leader.
 	leader2 := cfg.checkOneLeader()
 	cfg.disconnect(leader2)
 
@@ -296,7 +296,7 @@ func TestFailAgree3B(t *testing.T) {
 
 	// the full set of servers should preserve
 	// previous agreements, and be able to agree
-	// on new commands.
+	// on New commands.
 	cfg.one(106, servers, true)
 	time.Sleep(RaftElectionTimeout)
 	cfg.one(107, servers, true)
@@ -474,10 +474,10 @@ func TestRejoin3B(t *testing.T) {
 	cfg.rafts[leader1].Start(103)
 	cfg.rafts[leader1].Start(104)
 
-	// new leader commits, also for index=2
+	// New leader commits, also for index=2
 	cfg.one(103, 2, true)
 
-	// new leader network failure
+	// New leader network failure
 	leader2 := cfg.checkOneLeader()
 	cfg.disconnect(leader2)
 
@@ -525,7 +525,7 @@ func TestBackup3B(t *testing.T) {
 	cfg.connect((leader1 + 3) % servers)
 	cfg.connect((leader1 + 4) % servers)
 
-	// lots of successful commands to new group.
+	// lots of successful commands to New group.
 	for i := 0; i < loopNum; i++ {
 		cfg.one(rand.Int(), 3, true)
 	}
@@ -553,7 +553,7 @@ func TestBackup3B(t *testing.T) {
 	cfg.connect((leader1 + 1) % servers)
 	cfg.connect(other)
 
-	// lots of successful commands to new group.
+	// lots of successful commands to New group.
 	for i := 0; i < loopNum; i++ {
 		cfg.one(rand.Int(), 3, true)
 	}
@@ -804,8 +804,8 @@ func TestPersist33C(t *testing.T) {
 // Log.  If there is a leader, that leader will fail quickly with a high
 // probability (perhaps without committing the command), or crash after a while
 // with low probability (most like committing the command).  If the number of
-// alive servers isn't enough to form a majority, perhaps start a new server.
-// The leader in a new term may try to finish replicating Log entries that
+// alive servers isn't enough to form a majority, perhaps start a New server.
+// The leader in a New term may try to finish replicating Log entries that
 // haven't been committed yet.
 func TestFigure83C(t *testing.T) {
 	servers := 5

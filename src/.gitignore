@@ -11,4 +11,5 @@ mrtmp.*
 /main/mrsequential
 /main/mrworker
 **/logs
+**/kvlogs
 **/*pprof

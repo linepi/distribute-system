@@ -295,7 +295,7 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 
 // start or re-start a Raft.
 // if one already exists, "kill" it first.
-// allocate new outgoing port file names, and a new
+// allocate New outgoing port file names, and a New
 // state persister, to isolate previous instance of
 // this server. since we cannot really kill it.
 func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
@@ -320,7 +320,7 @@ func (cfg *config) start1(i int, applier func(int, chan ApplyMsg)) {
 	cfg.lastApplied[i] = 0
 
 	// a fresh persister, so old instance doesn't overwrite
-	// new instance's persisted state.
+	// New instance's persisted state.
 	// but copy old persister's content so that we always
 	// pass Make() the last persisted state.
 	if cfg.saved[i] != nil {

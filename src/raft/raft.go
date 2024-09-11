@@ -6,15 +6,15 @@ package raft
 // each of these functions for more details.
 //
 // rf = Make(...)
-//   create a new Raft server.
+//   create a New Raft server.
 // rf.Start(command interface{}) (index, term, isleader)
-//   start agreement on a new log entry
+//   start agreement on a New log entry
 // rf.GetState() (term, isLeader)
 //   ask a Raft for its current term, and whether it thinks it is leader
 // rf.Snapshot() (index int, snapshot []byte)
 //   give raft a snapshot as a mark of logs before(include) index
 // ApplyMsg
-//   each time a new entry is committed to the log, each Raft peer
+//   each time a New entry is committed to the log, each Raft peer
 //   should send an ApplyMsg to the service (or tester)
 //   in the same server.
 //
@@ -29,8 +29,8 @@ import (
 )
 
 type Timeout struct {
-	fixed       int
-	variability int
+	Fixed       int
+	Variability int
 }
 
 var (
@@ -42,11 +42,11 @@ var (
 	PeerTimeoutInterval        = Timeout{450, 200}
 )
 
-func (to *Timeout) new() time.Duration {
-	if to.variability == 0 {
-		return time.Duration(to.fixed) * time.Millisecond
+func (to *Timeout) New() time.Duration {
+	if to.Variability == 0 {
+		return time.Duration(to.Fixed) * time.Millisecond
 	} else {
-		return time.Duration(to.fixed+(rand.Int()%to.variability)) * time.Millisecond
+		return time.Duration(to.Fixed+(rand.Int()%to.Variability)) * time.Millisecond
 	}
 }
 
@@ -292,7 +292,7 @@ func (rf *Raft) setTimeoutVal() {
 	rf.muCom.Lock()
 	defer rf.muCom.Unlock()
 	rf.lastTime = time.Now()
-	rf.timeoutVal = PeerTimeoutInterval.new()
+	rf.timeoutVal = PeerTimeoutInterval.New()
 }
 
 func (rf *Raft) getLog(i int) logEntry {
@@ -845,7 +845,7 @@ func (rf *Raft) election() {
 				select {
 				case <-finish:
 					return
-				case <-time.After(RequestVoteInterval.new()):
+				case <-time.After(RequestVoteInterval.New()):
 				}
 			}
 		}(i)
@@ -890,7 +890,7 @@ func (rf *Raft) election() {
 				}
 			}
 			rf.mu.Unlock()
-		case <-time.After(CandidateWaitReplyInterval.new()):
+		case <-time.After(CandidateWaitReplyInterval.New()):
 		}
 	}
 
@@ -1087,7 +1087,7 @@ func (rf *Raft) doLeader() {
 				case <-finish:
 					return
 				case <-rf.wakeups[i]:
-				case <-time.After(AppendEntryInterval.new()):
+				case <-time.After(AppendEntryInterval.New()):
 				}
 			}
 		}(i)
@@ -1102,7 +1102,7 @@ func (rf *Raft) doLeader() {
 			if msg.arg.Term != rf.getTerm() {
 				break
 			}
-			//rf.leaderOnAppendEntriesReply(&msg)
+			rf.leaderOnAppendEntriesReply(&msg)
 		case ssmsg := <-ssmsgs:
 			if rf.getState() != Leader || rf.killed() {
 				break
@@ -1111,7 +1111,7 @@ func (rf *Raft) doLeader() {
 				break
 			}
 			rf.leaderOnInstallSnapshotReply(&ssmsg)
-		case <-time.After(LeaderWaitReplyInterval.new()):
+		case <-time.After(LeaderWaitReplyInterval.New()):
 		}
 	}
 	for i := 0; i < len(rf.peers)-1; i++ {
@@ -1145,7 +1145,7 @@ func (rf *Raft) ticker() {
 			}
 		}
 
-		time.Sleep(TickerInterval.new())
+		time.Sleep(TickerInterval.New())
 	}
 }
 
