@@ -21,12 +21,18 @@ func Assert(cond bool, reason string) {
 	}
 }
 
+func AssertNoReason(cond bool) {
+	if !cond {
+		Log.Panicf("Assert Failed: %s\n", debug.Stack())
+	}
+}
+
 func Panic() {
 	Assert(false, "Panic")
 }
 
 func init() {
-	if os.Getenv("RAFT_STDOUT") != "" {
+	if os.Getenv("KVRAFT_STDOUT") != "" {
 		stdout = true
 	}
 

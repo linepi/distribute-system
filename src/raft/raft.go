@@ -63,6 +63,7 @@ type ApplyMsg struct {
 	CommandValid bool
 	Command      interface{}
 	CommandIndex int
+	CommandTerm  int
 
 	// For 3D:
 	SnapshotValid bool
@@ -415,7 +416,7 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 		if rf.commitIndex > rf.lastApplied {
 			rf.lastApplied = rf.commitIndex
 			rf.applyMsg(ApplyMsg{
-				false, nil, 0,
+				false, nil, 0, 0,
 				true, args.Data, rf.snapshotLastTerm, rf.snapshotLastIndex,
 			})
 		}
@@ -712,9 +713,10 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			for i := rf.lastApplied + 1; i <= rf.commitIndex; i++ {
 				logIndex := i - rf.snapshotLastIndex
 				cmd := rf.log[logIndex-1].Cmd
+				term := rf.log[logIndex-1].Term
 				rf.muLog.Unlock()
 				rf.applyMsg(ApplyMsg{
-					true, cmd, i,
+					true, cmd, i, term,
 					false, nil, 0, 0})
 				rf.muLog.Lock()
 			}
@@ -782,6 +784,17 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 	Log.Printf("[%v] Start(%v) -> (index:%v,term:%v,isLeader:%v)",
 		basicInfo, cmd2str(command), index, rf.currentTerm, isLeader)
 	return index, rf.currentTerm, isLeader
+}
+
+// LastLog return index, term, cmd
+func (rf *Raft) LastLog() (int, int, interface{}) {
+	rf.muLog.Lock()
+	defer rf.muLog.Unlock()
+	if len(rf.log) == 0 {
+		return 0, 0, nil
+	} else {
+		return rf.snapshotLastIndex + len(rf.log), rf.log[len(rf.log)-1].Term, rf.log[len(rf.log)-1].Cmd
+	}
 }
 
 // Kill the tester doesn't halt goroutines created by Raft after each test,
@@ -905,6 +918,7 @@ func (rf *Raft) election() {
 // return isUpdated
 func (rf *Raft) leaderUpdateCommit() bool {
 	isUpdated := false
+	Log.Printf("[%v] leaderUpdateCommit", rf.basicInfo())
 	// update commitIndex and apply cmd to state machine
 	for i := len(rf.log) + rf.snapshotLastIndex; i > rf.commitIndex; i-- {
 		if len(rf.log) != 0 && rf.log[i-rf.snapshotLastIndex-1].Term == rf.getTerm() {
@@ -924,9 +938,10 @@ func (rf *Raft) leaderUpdateCommit() bool {
 					for j := rf.lastApplied + 1; j <= rf.commitIndex; j++ {
 						logIndex := j - rf.snapshotLastIndex
 						cmd := rf.log[logIndex-1].Cmd
+						term := rf.log[logIndex-1].Term
 						rf.muLog.Unlock()
 						rf.applyMsg(ApplyMsg{
-							true, cmd, j,
+							true, cmd, j, term,
 							false, nil, 0, 0})
 						rf.muLog.Lock()
 						isUpdated = true
@@ -1006,8 +1021,7 @@ func (rf *Raft) leaderOnAppendEntriesReply(msg *AppendEntriesWrapper) {
 	Log.Printf("[%v][%v] On AppendEntriesReply nextIndex[%v] from %v to %v\n",
 		rf.basicInfo(), msg.id, msg.reply.ReceiverId, initialNextIndex, rf.nextIndex[msg.reply.ReceiverId])
 	Assert(rf.nextIndex[msg.reply.ReceiverId] > 0, "nextIndex < 1!")
-	needWakeup = needWakeup || rf.leaderUpdateCommit()
-	if needWakeup {
+	if rf.leaderUpdateCommit() || needWakeup {
 		rf.wakeups[msg.reply.ReceiverId] <- true
 	}
 }
@@ -1029,8 +1043,7 @@ func (rf *Raft) leaderOnInstallSnapshotReply(msg *InstallSnapshotWrapper) {
 	if rf.nextIndex[reply.ReceiverId] <= args.LastIncludedIndex {
 		rf.nextIndex[reply.ReceiverId] = args.LastIncludedIndex + 1
 		rf.matchIndex[reply.ReceiverId] = rf.nextIndex[reply.ReceiverId] - 1
-		if rf.nextIndex[msg.reply.ReceiverId] <= rf.snapshotLastIndex+len(rf.log) ||
-			rf.leaderUpdateCommit() {
+		if rf.leaderUpdateCommit() || rf.nextIndex[msg.reply.ReceiverId] <= rf.snapshotLastIndex+len(rf.log) {
 			rf.wakeups[msg.reply.ReceiverId] <- true
 		}
 	}

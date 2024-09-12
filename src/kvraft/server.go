@@ -7,12 +7,12 @@ import (
 	"log"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 const (
 	OpAppend = 0
 	OpPut    = 1
+	OpGet    = 2
 )
 
 var (
@@ -22,12 +22,15 @@ var (
 )
 
 type Op struct {
-	// Your definitions here.
-	// Field names must start with capital letters,
-	// otherwise RPC will break.
 	Type int
 	Key  string
 	Val  string
+	Id   int64
+}
+
+type Request struct {
+	LogIndex int
+	LogTerm  int
 }
 
 type KVServer struct {
@@ -39,9 +42,9 @@ type KVServer struct {
 
 	maxraftstate int // snapshot if log grows this big
 
-	opmap   map[int]Op        // map log index to operation
-	data    map[string]string // actual state machine k/v data
-	request map[int64]int     // map request id to log index
+	data      map[string]string      // actual state machine k/v data
+	applyCond map[Request]*sync.Cond // actual state machine k/v data
+	request   map[int64]Request      // map request id to log index
 }
 
 func optype2str(t int) string {
@@ -53,66 +56,79 @@ func optype2str(t int) string {
 }
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
-	kv.mu.Lock()
-	defer kv.mu.Unlock()
 	_, isLeader := kv.rf.GetState()
 	if !isLeader {
 		reply.Err = ErrWrongLeader
 		return
 	}
-	val, ok := kv.data[args.Key]
+
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	var getRequest Request
+	req, ok := kv.request[args.Id]
 	if !ok {
-		reply.Err = ErrNoKey
-		return
-	}
-	reply.Value = val
-}
-
-func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype int) {
-	kv.mu.Lock()
-	defer kv.mu.Unlock()
-	_, isLeader := kv.rf.GetState()
-	if !isLeader {
-		reply.Err = ErrWrongLeader
-		return
-	}
-
-	var index int
-	value, ok := kv.request[args.Id]
-	if ok {
-		index = value
-	} else {
-		op := Op{optype, args.Key, args.Value}
-		idx, _, isStartLeader := kv.rf.Start(op)
+		op := Op{OpGet, args.Key, "", args.Id}
+		idx, term, isStartLeader := kv.rf.Start(op)
 		if !isStartLeader {
 			reply.Err = ErrWrongLeader
 			return
 		}
-		index = idx
-		kv.request[args.Id] = index
+		getRequest = Request{idx, term}
+		kv.request[args.Id] = getRequest
+		kv.applyCond[getRequest] = sync.NewCond(&kv.mu)
+	} else {
+		getRequest = req
 	}
 
-	start := time.Now()
-	for {
-		_, ok = kv.opmap[index]
-		if ok {
-			return
-		}
-		kv.mu.Unlock()
-		time.Sleep(PutWaitInterval.New())
-		kv.mu.Lock()
-
-		_, isLeader = kv.rf.GetState()
-		if !isLeader {
-			reply.Err = ErrWrongLeader
-			return
-		}
-
-		if time.Now().Sub(start) > WriteTimeout.New() {
-			reply.Err = ErrTimeout
-			return
-		}
+	kv.applyCond[getRequest].Wait()
+	val, ok := kv.data[args.Key]
+	if ok {
+		reply.Value = val
+		reply.Err = OK
+	} else {
+		reply.Value = ""
+		reply.Err = ErrNoKey
 	}
+}
+
+func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype int) {
+	_, isLeader := kv.rf.GetState()
+	if !isLeader {
+		reply.Err = ErrWrongLeader
+		Log.Printf("[s%v][r%v] GetState return is not leader\n", kv.me, args.Id)
+		return
+	}
+
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	var writeRequest Request
+	val, ok := kv.request[args.Id]
+	if !ok {
+		op := Op{optype, args.Key, args.Value, args.Id}
+		lastIdx, lastTerm, lastCmd := kv.rf.LastLog()
+		if lastCmd == nil || lastCmd.(Op).Id != args.Id {
+			idx, term, isStartLeader := kv.rf.Start(op)
+			if !isStartLeader {
+				reply.Err = ErrWrongLeader
+				Log.Printf("[s%v][r%v] start's return is not leader\n", kv.me, args.Id)
+				return
+			}
+			writeRequest = Request{idx, term}
+			kv.request[args.Id] = writeRequest
+			kv.applyCond[writeRequest] = sync.NewCond(&kv.mu)
+		} else {
+			// the log may come from other server, but client not know it has been transferred to this server,
+			// but we can infer this from requestId, because requestId is unique and same for same client request
+			writeRequest = Request{lastIdx, lastTerm}
+			kv.request[args.Id] = writeRequest
+			kv.applyCond[writeRequest] = sync.NewCond(&kv.mu)
+		}
+	} else {
+		writeRequest = val
+	}
+
+	kv.applyCond[writeRequest].Wait()
+	reply.Err = OK
 }
 
 func (kv *KVServer) Put(args *PutAppendArgs, reply *PutAppendReply) {
@@ -147,8 +163,6 @@ func (kv *KVServer) applyMsgReceiver() {
 		kv.mu.Lock()
 		var op Op
 		op = msg.Command.(Op)
-		kv.opmap[msg.CommandIndex] = op
-
 		if msg.CommandValid {
 			Log.Printf("[s%v] applied op {type: %v, key: \"%v\", value: \"%v\"}\n",
 				kv.me, optype2str(op.Type), op.Key, op.Val)
@@ -168,10 +182,17 @@ func (kv *KVServer) applyMsgReceiver() {
 			} else {
 				kv.data[op.Key] = op.Val
 			}
+		} else if op.Type == OpGet {
+			// nothing
 		} else {
 			log.Fatalf("Not expect")
 		}
+
+		cond, ok := kv.applyCond[Request{msg.CommandIndex, msg.CommandTerm}]
 		kv.mu.Unlock()
+		if ok {
+			cond.Broadcast()
+		}
 	}
 }
 
@@ -197,9 +218,9 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.maxraftstate = maxraftstate
 	kv.applyCh = make(chan raft.ApplyMsg)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
-	kv.opmap = make(map[int]Op)
 	kv.data = make(map[string]string)
-	kv.request = make(map[int64]int)
+	kv.applyCond = make(map[Request]*sync.Cond)
+	kv.request = make(map[int64]Request)
 
 	go kv.applyMsgReceiver()
 
