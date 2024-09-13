@@ -4,9 +4,11 @@ import (
 	"6.5840/labgob"
 	"6.5840/labrpc"
 	"6.5840/raft"
+	"fmt"
 	"log"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -16,9 +18,8 @@ const (
 )
 
 var (
-	PutWaitInterval    = raft.Timeout{Fixed: 5}
-	AppendWaitInterval = raft.Timeout{Fixed: 5}
-	WriteTimeout       = raft.Timeout{Fixed: 2000}
+	GetWaitTimeout       = raft.Timeout{Fixed: 2000}
+	PutAppendWaitTimeout = raft.Timeout{Fixed: 2000}
 )
 
 type Op struct {
@@ -29,8 +30,10 @@ type Op struct {
 }
 
 type Request struct {
-	LogIndex int
-	LogTerm  int
+	StateMachineUpdated bool
+	HasValue            bool
+	Value               string
+	Done                chan struct{}
 }
 
 type KVServer struct {
@@ -42,100 +45,130 @@ type KVServer struct {
 
 	maxraftstate int // snapshot if log grows this big
 
-	data      map[string]string      // actual state machine k/v data
-	applyCond map[Request]*sync.Cond // actual state machine k/v data
-	request   map[int64]Request      // map request id to log index
+	data    map[string]string // actual state machine k/v data
+	request map[int64]Request // map request id to log index
 }
 
 func optype2str(t int) string {
 	if t == OpPut {
 		return "Put"
-	} else {
+	} else if t == OpAppend {
 		return "Append"
+	} else {
+		return "Get"
 	}
 }
 
 func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
+	if kv.killed() {
+		return
+	}
+
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	logPrefix := fmt.Sprintf("[s%v][req%v][rpc%v]", kv.me, args.Id&0xffffffff, args.RpcId)
 	_, isLeader := kv.rf.GetState()
 	if !isLeader {
 		reply.Err = ErrWrongLeader
 		return
 	}
 
-	kv.mu.Lock()
-	defer kv.mu.Unlock()
-	var getRequest Request
-	req, ok := kv.request[args.Id]
-	if !ok {
+	_, ok := kv.request[args.Id]
+	if ok && kv.request[args.Id].StateMachineUpdated {
+		if kv.request[args.Id].HasValue {
+			reply.Err = OK
+			reply.Value = kv.request[args.Id].Value
+		} else {
+			reply.Err = ErrNoKey
+		}
+		return
+	} else {
 		op := Op{OpGet, args.Key, "", args.Id}
-		idx, term, isStartLeader := kv.rf.Start(op)
+		_, _, isStartLeader := kv.rf.Start(op)
 		if !isStartLeader {
 			reply.Err = ErrWrongLeader
 			return
 		}
-		getRequest = Request{idx, term}
-		kv.request[args.Id] = getRequest
-		kv.applyCond[getRequest] = sync.NewCond(&kv.mu)
-	} else {
-		getRequest = req
+		if !ok {
+			kv.request[args.Id] = Request{false, false, "", make(chan struct{})}
+		}
 	}
 
-	kv.applyCond[getRequest].Wait()
-	val, ok := kv.data[args.Key]
-	if ok {
-		reply.Value = val
-		reply.Err = OK
-	} else {
-		reply.Value = ""
-		reply.Err = ErrNoKey
+	done := kv.request[args.Id].Done
+	kv.mu.Unlock()
+	select {
+	case <-done:
+		kv.mu.Lock()
+		if kv.request[args.Id].HasValue {
+			reply.Err = OK
+			reply.Value = kv.request[args.Id].Value
+		} else {
+			reply.Err = ErrNoKey
+		}
+	case <-time.After(GetWaitTimeout.New()):
+		kv.mu.Lock()
+		Log.Printf("%v request timeout\n", logPrefix)
+		reply.Err = ErrTimeout
 	}
 }
 
 func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype int) {
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	logPrefix := fmt.Sprintf("[s%v][req%v][rpc%v]", kv.me, args.Id&0xffffffff, args.RpcId)
+
 	_, isLeader := kv.rf.GetState()
 	if !isLeader {
 		reply.Err = ErrWrongLeader
-		Log.Printf("[s%v][r%v] GetState return is not leader\n", kv.me, args.Id)
+		Log.Printf("%v GetState return is not leader\n", logPrefix)
 		return
 	}
 
-	kv.mu.Lock()
-	defer kv.mu.Unlock()
-	var writeRequest Request
-	val, ok := kv.request[args.Id]
-	if !ok {
-		op := Op{optype, args.Key, args.Value, args.Id}
-		lastIdx, lastTerm, lastCmd := kv.rf.LastLog()
-		if lastCmd == nil || lastCmd.(Op).Id != args.Id {
-			idx, term, isStartLeader := kv.rf.Start(op)
-			if !isStartLeader {
-				reply.Err = ErrWrongLeader
-				Log.Printf("[s%v][r%v] start's return is not leader\n", kv.me, args.Id)
-				return
-			}
-			writeRequest = Request{idx, term}
-			kv.request[args.Id] = writeRequest
-			kv.applyCond[writeRequest] = sync.NewCond(&kv.mu)
-		} else {
-			// the log may come from other server, but client not know it has been transferred to this server,
-			// but we can infer this from requestId, because requestId is unique and same for same client request
-			writeRequest = Request{lastIdx, lastTerm}
-			kv.request[args.Id] = writeRequest
-			kv.applyCond[writeRequest] = sync.NewCond(&kv.mu)
-		}
+	_, ok := kv.request[args.Id]
+	if ok && kv.request[args.Id].StateMachineUpdated {
+		reply.Err = OK
+		return
 	} else {
-		writeRequest = val
+		op := Op{optype, args.Key, args.Value, args.Id}
+		_, _, isStartLeader := kv.rf.Start(op)
+		if !isStartLeader {
+			reply.Err = ErrWrongLeader
+			Log.Printf("%v start's return is not leader\n", logPrefix)
+			return
+		}
+		if !ok {
+			kv.request[args.Id] = Request{false, false, "", make(chan struct{})}
+		}
 	}
 
-	kv.applyCond[writeRequest].Wait()
-	reply.Err = OK
+	Log.Printf("%v start wait\n", logPrefix)
+
+	done := kv.request[args.Id].Done
+	kv.mu.Unlock()
+	select {
+	case <-done:
+		kv.mu.Lock()
+		reply.Err = OK
+	case <-time.After(PutAppendWaitTimeout.New()):
+		kv.mu.Lock()
+		Log.Printf("%v request timeout\n", logPrefix)
+		reply.Err = ErrTimeout
+	}
+
+	Log.Printf("%v end wait\n", logPrefix)
 }
 
 func (kv *KVServer) Put(args *PutAppendArgs, reply *PutAppendReply) {
+	if kv.killed() {
+		return
+	}
 	kv.PutAppend(args, reply, OpPut)
 }
 
 func (kv *KVServer) Append(args *PutAppendArgs, reply *PutAppendReply) {
+	if kv.killed() {
+		return
+	}
 	kv.PutAppend(args, reply, OpAppend)
 }
 
@@ -160,6 +193,9 @@ func (kv *KVServer) killed() bool {
 
 func (kv *KVServer) applyMsgReceiver() {
 	for msg := range kv.applyCh {
+		if kv.killed() {
+			return
+		}
 		kv.mu.Lock()
 		var op Op
 		op = msg.Command.(Op)
@@ -173,26 +209,40 @@ func (kv *KVServer) applyMsgReceiver() {
 			Panic()
 		}
 
-		if op.Type == OpPut {
-			kv.data[op.Key] = op.Val
-		} else if op.Type == OpAppend {
-			val, ok := kv.data[op.Key]
-			if ok {
-				kv.data[op.Key] = val + op.Val
+		req, ok := kv.request[op.Id]
+		if !ok || !req.StateMachineUpdated {
+			if !ok {
+				req = Request{true, false, "", nil}
 			} else {
-				kv.data[op.Key] = op.Val
+				req.StateMachineUpdated = true
 			}
-		} else if op.Type == OpGet {
-			// nothing
-		} else {
-			log.Fatalf("Not expect")
+			if op.Type == OpPut {
+				kv.data[op.Key] = op.Val
+			} else if op.Type == OpAppend {
+				val, exist := kv.data[op.Key]
+				if exist {
+					kv.data[op.Key] = val + op.Val
+				} else {
+					kv.data[op.Key] = op.Val
+				}
+			} else if op.Type == OpGet {
+				val, exist := kv.data[op.Key]
+				if exist {
+					req.HasValue = true
+					req.Value = val
+				} else {
+					req.HasValue = false
+				}
+			} else {
+				log.Fatalf("Not expect")
+			}
+			kv.request[op.Id] = req
+			// if this server get this request, wakeup all waiting goroutine
+			if kv.request[op.Id].Done != nil {
+				close(kv.request[op.Id].Done)
+			}
 		}
-
-		cond, ok := kv.applyCond[Request{msg.CommandIndex, msg.CommandTerm}]
 		kv.mu.Unlock()
-		if ok {
-			cond.Broadcast()
-		}
 	}
 }
 
@@ -209,8 +259,6 @@ func (kv *KVServer) applyMsgReceiver() {
 // StartKVServer() must return quickly, so it should start goroutines
 // for any long-running work.
 func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister, maxraftstate int) *KVServer {
-	// call labgob.Register on structures you want
-	// Go's RPC library to marshall/unmarshall.
 	labgob.Register(Op{})
 
 	kv := new(KVServer)
@@ -219,7 +267,6 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.applyCh = make(chan raft.ApplyMsg)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 	kv.data = make(map[string]string)
-	kv.applyCond = make(map[Request]*sync.Cond)
 	kv.request = make(map[int64]Request)
 
 	go kv.applyMsgReceiver()

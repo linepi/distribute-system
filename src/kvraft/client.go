@@ -3,6 +3,8 @@ package kvraft
 import (
 	"6.5840/labrpc"
 	"6.5840/raft"
+	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -11,12 +13,13 @@ import "math/big"
 
 var requestId atomic.Int32
 var clerkId atomic.Int32
+var rpcId atomic.Int32
 
 var (
 	NoLeaderTolerateTime = raft.Timeout{Fixed: 1000}
-	GetRpcInterval       = raft.Timeout{Fixed: 1000}
-	PutRpcInterval       = raft.Timeout{Fixed: 1000}
-	AppendRpcInterval    = raft.Timeout{Fixed: 1000}
+	GetRpcInterval       = raft.Timeout{Fixed: 2000}
+	PutRpcInterval       = raft.Timeout{Fixed: 2000}
+	AppendRpcInterval    = raft.Timeout{Fixed: 2000}
 )
 
 type Clerk struct {
@@ -39,30 +42,62 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	return ck
 }
 
-// return ok
-func (ck *Clerk) onGetReply(args *GetArgs, reply *GetReply, buffer chan *GetReply) {
-	Log.Printf("[c%v][r%v] Get(%v) = \"%v\" from s%v, Err: %v\n",
-		ck.id, args.Id, args.Key, reply.Value, args.ServerId, reply.Err)
+func (ck *Clerk) sendPutAppendRpc(
+	op string, key *string, value *string, requestId int64, buffer chan *PutAppendReply, i int) {
+	rpcid := rpcId.Add(1)
+	args := PutAppendArgs{*key, *value, requestId, i, rpcid}
+	reply := PutAppendReply{}
 
-	if reply.Err == OK || reply.Err == ErrNoKey {
-		ck.leaderIndex.Store(int32(args.ServerId))
-		buffer <- reply
+	logPrefix := fmt.Sprintf("[c%v][req%v][rpc%v]", ck.id, requestId&0xffffffff, rpcid)
+
+	Log.Printf("%v start rpc %v() to s%v\n", logPrefix, op, i)
+	ok := ck.servers[i].Call("KVServer."+op, &args, &reply)
+	if ok {
+		if op == "Put" {
+			Log.Printf("%v Put to s%v: key:\"%s\" value:\"%s\", Err: %v\n",
+				logPrefix, args.ServerId, args.Key, args.Value, reply.Err)
+		} else {
+			Log.Printf("%v Append to s%v: key:\"%s\" value:\"%s\", Err: %v\n",
+				logPrefix, args.ServerId, args.Key, args.Value, reply.Err)
+		}
+
+		if reply.Err == OK {
+			ck.leaderIndex.Store(int32(args.ServerId))
+			buffer <- &reply
+		}
+	} else {
+		Log.Printf("%v rpc %v() failed to s%v\n", logPrefix, op, i)
 	}
 }
 
-func (ck *Clerk) onWriteReply(
-	op string, args *PutAppendArgs, reply *PutAppendReply, buffer chan *PutAppendReply) {
-	if op == "Put" {
-		Log.Printf("[c%v][r%v] Put to s%v: key:\"%s\" value:\"%s\", Err: %v\n",
-			ck.id, args.Id, args.ServerId, args.Key, args.Value, reply.Err)
-	} else {
-		Log.Printf("[c%v][r%v] Append to s%v: key:\"%s\" value:\"%s\", Err: %v\n",
-			ck.id, args.Id, args.ServerId, args.Key, args.Value, reply.Err)
-	}
+func (ck *Clerk) sendGetRpc(key *string, requestId int64, buffer chan *GetReply, i int) {
+	rpcid := rpcId.Add(1)
+	args := GetArgs{*key, requestId, i, rpcid}
+	reply := GetReply{}
 
-	if reply.Err == OK {
-		ck.leaderIndex.Store(int32(args.ServerId))
-		buffer <- reply
+	logPrefix := fmt.Sprintf("[c%v][req%v][rpc%v]", ck.id, requestId&0xffffffff, rpcid)
+	Log.Printf("%v start rpc Get(%v) to s%v\n", logPrefix, args.Key, i)
+	ok := ck.servers[i].Call("KVServer.Get", &args, &reply)
+	if ok {
+		Log.Printf("%v Get(%v) = \"%v\" from s%v, Err: %v\n",
+			logPrefix, args.Key, reply.Value, i, reply.Err)
+
+		if reply.Err == OK || reply.Err == ErrNoKey {
+			ck.leaderIndex.Store(int32(args.ServerId))
+			buffer <- &reply
+		}
+	} else {
+		Log.Printf("%v rpc Get() failed to s%v\n", logPrefix, i)
+	}
+}
+
+// return wake by chan
+func sleepOnChan(c chan bool, duration time.Duration) bool {
+	select {
+	case <-time.After(GetRpcInterval.New()):
+		return false
+	case <-c:
+		return true
 	}
 }
 
@@ -78,55 +113,59 @@ func (ck *Clerk) onWriteReply(
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) Get(key string) string {
 	requestIdGet := int64(requestId.Add(1)) | int64(ck.id)<<32
+	Log.Printf("[c%v][r%v] call Clerk.Get(\"%v\")\n", ck.id, requestIdGet, key)
 	replyBuffer := make(chan *GetReply, 1)
-	meth := "KVServer.Get"
 
-	stop := atomic.Bool{}
-	stop.Store(false)
+	var wg sync.WaitGroup
+	finish := make(chan bool, len(ck.servers))
 
 	lastLeaderIndex := ck.leaderIndex.Load()
+	wg.Add(1)
 	go func() {
-		for !stop.Load() {
+		defer wg.Done()
+		for {
 			go func() {
-				args := GetArgs{key, requestIdGet, int(lastLeaderIndex)}
-				reply := GetReply{}
-				ok := ck.servers[lastLeaderIndex].Call(meth, &args, &reply)
-				if ok {
-					ck.onGetReply(&args, &reply, replyBuffer)
-				}
+				ck.sendGetRpc(&key, requestIdGet, replyBuffer, int(lastLeaderIndex))
 			}()
-			time.Sleep(GetRpcInterval.New())
+			if sleepOnChan(finish, GetRpcInterval.New()) {
+				return
+			}
 		}
 	}()
 
+	var reply *GetReply
 	select {
-	case reply := <-replyBuffer:
+	case reply = <-replyBuffer:
 		AssertNoReason(reply.Err == ErrNoKey || reply.Err == OK)
-		stop.Store(true)
-		return reply.Value
 	case <-time.After(NoLeaderTolerateTime.New()):
 		for i := 0; i < len(ck.servers); i++ {
+			if i == int(lastLeaderIndex) {
+				continue
+			}
+			wg.Add(1)
 			go func(i int) {
-				for !stop.Load() {
+				defer wg.Done()
+				for {
 					go func() {
-						args := GetArgs{key, requestIdGet, i}
-						reply := GetReply{}
-						ok := ck.servers[i].Call(meth, &args, &reply)
-						if ok {
-							ck.onGetReply(&args, &reply, replyBuffer)
-						}
+						ck.sendGetRpc(&key, requestIdGet, replyBuffer, i)
 					}()
-					time.Sleep(GetRpcInterval.New())
+					if sleepOnChan(finish, GetRpcInterval.New()) {
+						return
+					}
 				}
 			}(i)
 		}
 		select {
-		case reply := <-replyBuffer:
+		case reply = <-replyBuffer:
 			AssertNoReason(reply.Err == ErrNoKey || reply.Err == OK)
-			stop.Store(true)
-			return reply.Value
 		}
 	}
+
+	for i := 0; i < len(ck.servers); i++ {
+		finish <- true
+	}
+	wg.Wait()
+	return reply.Value
 }
 
 // PutAppend shared by Put and Append.
@@ -139,9 +178,8 @@ func (ck *Clerk) Get(key string) string {
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	requestIdWrite := int64(requestId.Add(1)) | int64(ck.id)<<32
-	Log.Printf("[c%v][r%v] call PutAppend(\"%v\", \"%v\", %v)\n", ck.id, requestIdWrite, key, value, op)
+	Log.Printf("[c%v][r%v] call Clerk.PutAppend(\"%v\", \"%v\", %v)\n", ck.id, requestIdWrite, key, value, op)
 	replyBuffer := make(chan *PutAppendReply, 1)
-	meth := "KVServer." + op
 	var rpcInterval time.Duration
 	if op == "Put" {
 		rpcInterval = PutRpcInterval.New()
@@ -149,57 +187,53 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		rpcInterval = AppendRpcInterval.New()
 	}
 
-	stop := atomic.Bool{}
-	stop.Store(false)
+	var wg sync.WaitGroup
+	finish := make(chan bool, len(ck.servers))
 
 	lastLeaderIndex := ck.leaderIndex.Load()
+	wg.Add(1)
 	go func() {
-		for !stop.Load() {
+		defer wg.Done()
+		for {
 			go func() {
-				args := PutAppendArgs{key, value, requestIdWrite, int(lastLeaderIndex)}
-				reply := PutAppendReply{}
-				ok := ck.servers[lastLeaderIndex].Call(meth, &args, &reply)
-				if ok {
-					ck.onWriteReply(op, &args, &reply, replyBuffer)
-				} else {
-					Log.Printf("[c%v][r%v] rpc failed to s%v\n", ck.id, requestIdWrite, int(lastLeaderIndex))
-				}
+				ck.sendPutAppendRpc(op, &key, &value, requestIdWrite, replyBuffer, int(lastLeaderIndex))
 			}()
-			time.Sleep(rpcInterval)
+			if sleepOnChan(finish, rpcInterval) {
+				return
+			}
 		}
 	}()
 
 	select {
 	case reply := <-replyBuffer:
 		AssertNoReason(reply.Err == OK)
-		stop.Store(true)
 	case <-time.After(NoLeaderTolerateTime.New()):
 		for i := 0; i < len(ck.servers); i++ {
 			if i == int(lastLeaderIndex) {
 				continue
 			}
+			wg.Add(1)
 			go func(i int) {
-				for !stop.Load() {
+				defer wg.Done()
+				for {
 					go func() {
-						args := PutAppendArgs{key, value, requestIdWrite, i}
-						reply := PutAppendReply{}
-						ok := ck.servers[i].Call(meth, &args, &reply)
-						if ok {
-							ck.onWriteReply(op, &args, &reply, replyBuffer)
-						} else {
-							Log.Printf("[c%v][r%v] rpc failed to s%v\n", ck.id, requestIdWrite, i)
-						}
+						ck.sendPutAppendRpc(op, &key, &value, requestIdWrite, replyBuffer, i)
 					}()
-					time.Sleep(rpcInterval)
+					if sleepOnChan(finish, rpcInterval) {
+						return
+					}
 				}
 			}(i)
 		}
 		select {
 		case reply := <-replyBuffer:
 			AssertNoReason(reply.Err == OK)
-			stop.Store(true)
 		}
 	}
+	for i := 0; i < len(ck.servers); i++ {
+		finish <- true
+	}
+	wg.Wait()
 }
 
 func (ck *Clerk) Put(key string, value string) {

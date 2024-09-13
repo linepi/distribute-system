@@ -9,7 +9,7 @@ import (
 )
 
 var Log *log.Logger
-var stdout = true
+var stdout = false
 
 func Assert(cond bool, reason string) {
 	if !cond {

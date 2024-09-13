@@ -797,6 +797,19 @@ func (rf *Raft) LastLog() (int, int, interface{}) {
 	}
 }
 
+// UpdateLastLogTerm return new term
+func (rf *Raft) UpdateLastLogTerm() int {
+	rf.muLog.Lock()
+	defer rf.muLog.Unlock()
+	if len(rf.log) != 0 {
+		term := rf.getTerm()
+		rf.log[len(rf.log)-1].Term = term
+		return term
+	} else {
+		return 0
+	}
+}
+
 // Kill the tester doesn't halt goroutines created by Raft after each test,
 // but it does call the Kill() method. your code can use killed() to
 // check whether Kill() has been called. the use of atomic avoids the
@@ -1191,7 +1204,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.lastApplied = rf.snapshotLastIndex
 
 	for i := 0; i < len(rf.peers); i++ {
-		wakeup := make(chan bool, 1)
+		wakeup := make(chan bool, 10)
 		rf.wakeups = append(rf.wakeups, wakeup)
 	}
 

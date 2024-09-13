@@ -15,6 +15,7 @@ type PutAppendArgs struct {
 	Value    string
 	Id       int64
 	ServerId int
+	RpcId    int32
 }
 
 type PutAppendReply struct {
@@ -25,6 +26,7 @@ type GetArgs struct {
 	Key      string
 	Id       int64
 	ServerId int
+	RpcId    int32
 }
 
 type GetReply struct {
