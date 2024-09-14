@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 func channelWork(c chan struct{}) {
@@ -45,4 +46,35 @@ func TestCoderAtom(t *testing.T) {
 	raft.FromByte(bytes, &b)
 	fmt.Println(a)
 	fmt.Println(b)
+}
+
+func TestMap(t *testing.T) {
+	a := make(map[string]string)
+	a["3"] = "3"
+	done := make(chan struct{})
+	go func() {
+		for i := 0; i < 1000; i++ {
+			a["3"] = string(rune(i))
+		}
+		done <- struct{}{}
+	}()
+	for i := 0; i < 1000; i++ {
+		delete(a, "3")
+	}
+	<-done
+}
+
+func TestBuffer(t *testing.T) {
+	var buf []int
+	buf = append(buf, 3)
+	buf = append(buf, 3)
+	buf = append(buf, 3)
+	buf = append(buf, 3)
+	buf = append(buf, 3)
+	buf = append(buf, 3)
+	buf = append(buf, 3)
+	fmt.Println(buf)
+
+	var a string
+	fmt.Println(unsafe.Sizeof(a))
 }

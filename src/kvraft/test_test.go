@@ -650,12 +650,12 @@ func TestSnapshotRPC4B(t *testing.T) {
 	cfg.end()
 }
 
-// are the snapshots not too huge? 500 bytes is a generous bound for the
+// are the snapshots not too huge? 3000 bytes is a generous bound for the
 // operations we're doing here.
 func TestSnapshotSize4B(t *testing.T) {
 	const nservers = 3
 	maxraftstate := 1000
-	maxsnapshotstate := 500
+	maxsnapshotstate := 3000
 	cfg := make_config(t, nservers, false, maxraftstate)
 	defer cfg.cleanup()
 

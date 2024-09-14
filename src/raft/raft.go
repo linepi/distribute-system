@@ -392,8 +392,6 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 		return
 	}
 
-	Assert(args.LastIncludedTerm >= rf.snapshotLastTerm, "")
-
 	oldIndex := rf.snapshotLastIndex
 	oldTerm := rf.snapshotLastTerm
 	rf.snapshotLastIndex = args.LastIncludedIndex

@@ -35,9 +35,7 @@ type GetReply struct {
 }
 
 type FinishArgs struct {
-	Id       int64
-	ServerId int
-	RpcId    int32
+	Ids []int64
 }
 
 type FinishReply struct {

@@ -4,28 +4,29 @@ import (
 	"6.5840/labrpc"
 	"6.5840/raft"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"time"
 )
 import "crypto/rand"
 import "math/big"
 
-var requestId atomic.Int32
 var clerkId atomic.Int32
-var rpcId atomic.Int32
 
 var (
-	NoLeaderTolerateTime = raft.Timeout{Fixed: 1000}
-	GetRpcInterval       = raft.Timeout{Fixed: 2000}
-	PutRpcInterval       = raft.Timeout{Fixed: 2000}
-	AppendRpcInterval    = raft.Timeout{Fixed: 2000}
+	NoLeaderTolerateTime   = raft.Timeout{Fixed: 1000}
+	GetRpcInterval         = raft.Timeout{Fixed: 3000}
+	PutRpcInterval         = raft.Timeout{Fixed: 3000}
+	AppendRpcInterval      = raft.Timeout{Fixed: 3000}
+	RequestIdClearInterval = raft.Timeout{Fixed: 2000}
 )
 
 type Clerk struct {
 	servers     []*labrpc.ClientEnd
 	id          int32
+	requestId   atomic.Int32
+	rpcId       atomic.Int32
 	leaderIndex atomic.Int32 // last thought leader index in servers
+	requestIds  chan int64
 }
 
 func nrand() int64 {
@@ -35,16 +36,40 @@ func nrand() int64 {
 	return x
 }
 
+func (ck *Clerk) newReqeustId() int64 {
+	return int64(ck.requestId.Add(1)) | int64(ck.id)<<32
+}
+
 func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
 	ck.id = clerkId.Add(1)
+	ck.requestIds = make(chan int64, 1000)
+	go func() {
+		lastTime := time.Now()
+		var buffer []int64
+		for reqId := range ck.requestIds {
+			buffer = append(buffer, reqId)
+			if time.Now().Sub(lastTime) > RequestIdClearInterval.New() {
+				bufferCopy := make([]int64, len(buffer))
+				copy(bufferCopy, buffer)
+				for i := 0; i < len(ck.servers); i++ {
+					go func(i int) {
+						for !ck.sendFinishRpc(bufferCopy, i) {
+						}
+					}(i)
+				}
+				buffer = nil
+				lastTime = time.Now()
+			}
+		}
+	}()
 	return ck
 }
 
 func (ck *Clerk) sendPutAppendRpc(
 	op string, key *string, value *string, requestId int64, buffer chan *PutAppendReply, i int) {
-	rpcid := rpcId.Add(1)
+	rpcid := ck.rpcId.Add(1)
 	args := PutAppendArgs{*key, *value, requestId, i, rpcid}
 	reply := PutAppendReply{}
 
@@ -71,7 +96,7 @@ func (ck *Clerk) sendPutAppendRpc(
 }
 
 func (ck *Clerk) sendGetRpc(key *string, requestId int64, buffer chan *GetReply, i int) {
-	rpcid := rpcId.Add(1)
+	rpcid := ck.rpcId.Add(1)
 	args := GetArgs{*key, requestId, i, rpcid}
 	reply := GetReply{}
 
@@ -91,35 +116,10 @@ func (ck *Clerk) sendGetRpc(key *string, requestId int64, buffer chan *GetReply,
 	}
 }
 
-func (ck *Clerk) sendFinishRpc(requestId int64, buffer chan *FinishReply, i int) {
-	rpcid := rpcId.Add(1)
-	args := FinishArgs{requestId, i, rpcid}
+func (ck *Clerk) sendFinishRpc(requestId []int64, i int) bool {
+	args := FinishArgs{requestId}
 	reply := FinishReply{}
-
-	logPrefix := fmt.Sprintf("[c%v][req%v][rpc%v]", ck.id, requestId&0xffffffff, rpcid)
-	Log.Printf("%v start rpc Finish() to s%v\n", logPrefix, i)
-	ok := ck.servers[i].Call("KVServer.Finish", &args, &reply)
-	if ok {
-		Log.Printf("%v Finish() from s%v, Err: %v\n",
-			logPrefix, i, reply.Err)
-
-		if reply.Err == OK {
-			ck.leaderIndex.Store(int32(args.ServerId))
-			buffer <- &reply
-		}
-	} else {
-		Log.Printf("%v rpc Finish() failed to s%v\n", logPrefix, i)
-	}
-}
-
-// return wake by chan
-func sleepOnChan(c chan bool, duration time.Duration) bool {
-	select {
-	case <-time.After(GetRpcInterval.New()):
-		return false
-	case <-c:
-		return true
-	}
+	return ck.servers[i].Call("KVServer.Finish", &args, &reply)
 }
 
 // Get fetch the current value for a key.
@@ -133,60 +133,41 @@ func sleepOnChan(c chan bool, duration time.Duration) bool {
 // must match the declared types of the RPC handler function's
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) Get(key string) string {
-	requestIdGet := int64(requestId.Add(1)) | int64(ck.id)<<32
+	requestIdGet := ck.newReqeustId()
 	Log.Printf("[c%v][r%v] call Clerk.Get(\"%v\")\n", ck.id, requestIdGet, key)
-	replyBuffer := make(chan *GetReply, 1)
 
-	var wg sync.WaitGroup
-	finish := make(chan bool, len(ck.servers))
-
-	lastLeaderIndex := ck.leaderIndex.Load()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			go func() {
-				ck.sendGetRpc(&key, requestIdGet, replyBuffer, int(lastLeaderIndex))
-			}()
-			if sleepOnChan(finish, GetRpcInterval.New()) {
-				return
+	replyBuffer := make(chan *GetReply, len(ck.servers))
+	var reply *GetReply
+	done := atomic.Bool{}
+	done.Store(false)
+	i := int(ck.leaderIndex.Load())
+	j := 0
+	for ; j < len(ck.servers); j++ {
+		go func(i int) {
+			for !done.Load() {
+				go func() {
+					ck.sendGetRpc(&key, requestIdGet, replyBuffer, i)
+				}()
+				time.Sleep(GetRpcInterval.New())
+			}
+		}(i)
+		if j == 0 {
+			select {
+			case reply = <-replyBuffer:
+				done.Store(true)
+				ck.requestIds <- requestIdGet
+				return reply.Value
+			case <-time.After(NoLeaderTolerateTime.New()):
 			}
 		}
-	}()
-
-	var reply *GetReply
+		i = (i + 1) % len(ck.servers)
+	}
 	select {
 	case reply = <-replyBuffer:
-		AssertNoReason(reply.Err == ErrNoKey || reply.Err == OK)
-	case <-time.After(NoLeaderTolerateTime.New()):
-		for i := 0; i < len(ck.servers); i++ {
-			if i == int(lastLeaderIndex) {
-				continue
-			}
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				for {
-					go func() {
-						ck.sendGetRpc(&key, requestIdGet, replyBuffer, i)
-					}()
-					if sleepOnChan(finish, GetRpcInterval.New()) {
-						return
-					}
-				}
-			}(i)
-		}
-		select {
-		case reply = <-replyBuffer:
-			AssertNoReason(reply.Err == ErrNoKey || reply.Err == OK)
-		}
+		done.Store(true)
+		ck.requestIds <- requestIdGet
+		return reply.Value
 	}
-
-	for i := 0; i < len(ck.servers); i++ {
-		finish <- true
-	}
-	wg.Wait()
-	return reply.Value
 }
 
 // PutAppend shared by Put and Append.
@@ -198,9 +179,10 @@ func (ck *Clerk) Get(key string) string {
 // must match the declared types of the RPC handler function's
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) PutAppend(key string, value string, op string) {
-	requestIdWrite := int64(requestId.Add(1)) | int64(ck.id)<<32
+	requestIdWrite := ck.newReqeustId()
 	Log.Printf("[c%v][r%v] call Clerk.PutAppend(\"%v\", \"%v\", %v)\n", ck.id, requestIdWrite, key, value, op)
-	replyBuffer := make(chan *PutAppendReply, 1)
+
+	replyBuffer := make(chan *PutAppendReply, len(ck.servers))
 	var rpcInterval time.Duration
 	if op == "Put" {
 		rpcInterval = PutRpcInterval.New()
@@ -208,53 +190,38 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		rpcInterval = AppendRpcInterval.New()
 	}
 
-	var wg sync.WaitGroup
-	finish := make(chan bool, len(ck.servers))
-
-	lastLeaderIndex := ck.leaderIndex.Load()
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		for {
-			go func() {
-				ck.sendPutAppendRpc(op, &key, &value, requestIdWrite, replyBuffer, int(lastLeaderIndex))
-			}()
-			if sleepOnChan(finish, rpcInterval) {
+	var reply *PutAppendReply
+	done := atomic.Bool{}
+	done.Store(false)
+	i := int(ck.leaderIndex.Load())
+	j := 0
+	for ; j < len(ck.servers); j++ {
+		go func(i int) {
+			for !done.Load() {
+				go func() {
+					ck.sendPutAppendRpc(op, &key, &value, requestIdWrite, replyBuffer, i)
+				}()
+				time.Sleep(rpcInterval)
+			}
+		}(i)
+		if j == 0 {
+			select {
+			case reply = <-replyBuffer:
+				AssertNoReason(reply.Err == OK)
+				done.Store(true)
+				ck.requestIds <- requestIdWrite
 				return
+			case <-time.After(NoLeaderTolerateTime.New()):
 			}
 		}
-	}()
-
+		i = (i + 1) % len(ck.servers)
+	}
 	select {
-	case reply := <-replyBuffer:
+	case reply = <-replyBuffer:
 		AssertNoReason(reply.Err == OK)
-	case <-time.After(NoLeaderTolerateTime.New()):
-		for i := 0; i < len(ck.servers); i++ {
-			if i == int(lastLeaderIndex) {
-				continue
-			}
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				for {
-					go func() {
-						ck.sendPutAppendRpc(op, &key, &value, requestIdWrite, replyBuffer, i)
-					}()
-					if sleepOnChan(finish, rpcInterval) {
-						return
-					}
-				}
-			}(i)
-		}
-		select {
-		case reply := <-replyBuffer:
-			AssertNoReason(reply.Err == OK)
-		}
+		done.Store(true)
+		ck.requestIds <- requestIdWrite
 	}
-	for i := 0; i < len(ck.servers); i++ {
-		finish <- true
-	}
-	wg.Wait()
 }
 
 func (ck *Clerk) Put(key string, value string) {

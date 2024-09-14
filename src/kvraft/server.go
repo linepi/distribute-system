@@ -183,7 +183,10 @@ func (kv *KVServer) Finish(args *FinishArgs, reply *FinishReply) {
 	}
 	kv.mu.Lock()
 	defer kv.mu.Unlock()
-	delete(kv.request, args.Id)
+
+	for _, id := range args.Ids {
+		delete(kv.request, id)
+	}
 	reply.Err = OK
 }
 
@@ -261,10 +264,7 @@ func (kv *KVServer) applyMsgReceiver() {
 		} else if msg.SnapshotValid {
 			Log.Printf("[s%v] applied SNAPSHOT {index: %v, term: %v}\n",
 				kv.me, msg.SnapshotIndex, msg.SnapshotTerm)
-			AssertNoReason(len(msg.Snapshot) > 0)
-			var sd SnapshotData
-			raft.FromByte(msg.Snapshot, &sd)
-			kv.data = sd.Data
+			kv.fromSnapshot(msg.Snapshot)
 		} else {
 			Panic()
 		}
@@ -274,11 +274,21 @@ func (kv *KVServer) applyMsgReceiver() {
 }
 
 type SnapshotData struct {
-	Data map[string]DataEntry
+	Data    map[string]DataEntry
+	Request map[int64]Request // map request id to log index
 }
 
+// need lock
 func (kv *KVServer) snapshot(index int) {
-	kv.rf.Snapshot(index, raft.ToByte(SnapshotData{kv.data}))
+	kv.rf.Snapshot(index, raft.ToByte(SnapshotData{kv.data, kv.request}))
+}
+
+func (kv *KVServer) fromSnapshot(snapshot []byte) {
+	AssertNoReason(len(snapshot) > 0)
+	var sd SnapshotData
+	raft.FromByte(snapshot, &sd)
+	kv.data = sd.Data
+	kv.request = sd.Request
 }
 
 // StartKVServer servers[] contains the ports of the set of
@@ -304,10 +314,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 
 	snapshot := persister.ReadSnapshot()
 	if len(snapshot) > 0 {
-		var sd SnapshotData
-		raft.FromByte(snapshot, &sd)
-		kv.data = sd.Data
-		kv.request = make(map[int64]Request)
+		kv.fromSnapshot(snapshot)
 	} else {
 		kv.data = make(map[string]DataEntry)
 		kv.request = make(map[int64]Request)
