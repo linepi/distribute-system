@@ -36,6 +36,11 @@ type Request struct {
 	Done                chan struct{}
 }
 
+type DataEntry struct {
+	LastReqId int64
+	Value     string
+}
+
 type KVServer struct {
 	mu      sync.Mutex
 	me      int
@@ -45,8 +50,8 @@ type KVServer struct {
 
 	maxraftstate int // snapshot if log grows this big
 
-	data    map[string]string // actual state machine k/v data
-	request map[int64]Request // map request id to log index
+	data    map[string]DataEntry // actual state machine k/v data
+	request map[int64]Request    // map request id to log index
 }
 
 func optype2str(t int) string {
@@ -172,6 +177,16 @@ func (kv *KVServer) Append(args *PutAppendArgs, reply *PutAppendReply) {
 	kv.PutAppend(args, reply, OpAppend)
 }
 
+func (kv *KVServer) Finish(args *FinishArgs, reply *FinishReply) {
+	if kv.killed() {
+		return
+	}
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
+	delete(kv.request, args.Id)
+	reply.Err = OK
+}
+
 // Kill the tester calls Kill() when a KVServer instance won't
 // be needed again. for your convenience, we supply
 // code to set rf.dead (without needing a lock),
@@ -197,53 +212,73 @@ func (kv *KVServer) applyMsgReceiver() {
 			return
 		}
 		kv.mu.Lock()
-		var op Op
-		op = msg.Command.(Op)
 		if msg.CommandValid {
+			var op Op
+			op = msg.Command.(Op)
 			Log.Printf("[s%v] applied op {type: %v, key: \"%v\", value: \"%v\"}\n",
 				kv.me, optype2str(op.Type), op.Key, op.Val)
+			req, ok := kv.request[op.Id]
+			if !ok || !req.StateMachineUpdated {
+				if !ok {
+					req = Request{true, false, "", nil}
+				} else {
+					req.StateMachineUpdated = true
+				}
+
+				entry, exist := kv.data[op.Key]
+				if !exist || entry.LastReqId != op.Id {
+					if op.Type == OpPut {
+						kv.data[op.Key] = DataEntry{op.Id, op.Val}
+					} else if op.Type == OpAppend {
+						if exist {
+							kv.data[op.Key] = DataEntry{op.Id, entry.Value + op.Val}
+						} else {
+							kv.data[op.Key] = DataEntry{op.Id, op.Val}
+						}
+					} else if op.Type == OpGet {
+						if exist {
+							req.HasValue = true
+							req.Value = entry.Value
+						} else {
+							req.HasValue = false
+						}
+					} else {
+						log.Fatalf("Not expect")
+					}
+				}
+				kv.request[op.Id] = req
+				// if this server get this request, wakeup all waiting goroutine
+				if kv.request[op.Id].Done != nil {
+					close(kv.request[op.Id].Done)
+				}
+			}
+
+			if kv.maxraftstate != -1 && kv.rf.CurrentStateSize() > int64(kv.maxraftstate) {
+				Log.Printf("snapshot when state size is %v(maxstatesize %v)\n",
+					kv.rf.CurrentStateSize(), kv.maxraftstate)
+				kv.snapshot(msg.CommandIndex)
+			}
 		} else if msg.SnapshotValid {
-			Log.Printf("[s%v] applied SNAPSHOT {index: %v, term: %v, data: %v}\n",
-				kv.me, msg.SnapshotIndex, msg.SnapshotTerm, msg.Snapshot)
+			Log.Printf("[s%v] applied SNAPSHOT {index: %v, term: %v}\n",
+				kv.me, msg.SnapshotIndex, msg.SnapshotTerm)
+			AssertNoReason(len(msg.Snapshot) > 0)
+			var sd SnapshotData
+			raft.FromByte(msg.Snapshot, &sd)
+			kv.data = sd.Data
 		} else {
 			Panic()
 		}
 
-		req, ok := kv.request[op.Id]
-		if !ok || !req.StateMachineUpdated {
-			if !ok {
-				req = Request{true, false, "", nil}
-			} else {
-				req.StateMachineUpdated = true
-			}
-			if op.Type == OpPut {
-				kv.data[op.Key] = op.Val
-			} else if op.Type == OpAppend {
-				val, exist := kv.data[op.Key]
-				if exist {
-					kv.data[op.Key] = val + op.Val
-				} else {
-					kv.data[op.Key] = op.Val
-				}
-			} else if op.Type == OpGet {
-				val, exist := kv.data[op.Key]
-				if exist {
-					req.HasValue = true
-					req.Value = val
-				} else {
-					req.HasValue = false
-				}
-			} else {
-				log.Fatalf("Not expect")
-			}
-			kv.request[op.Id] = req
-			// if this server get this request, wakeup all waiting goroutine
-			if kv.request[op.Id].Done != nil {
-				close(kv.request[op.Id].Done)
-			}
-		}
 		kv.mu.Unlock()
 	}
+}
+
+type SnapshotData struct {
+	Data map[string]DataEntry
+}
+
+func (kv *KVServer) snapshot(index int) {
+	kv.rf.Snapshot(index, raft.ToByte(SnapshotData{kv.data}))
 }
 
 // StartKVServer servers[] contains the ports of the set of
@@ -266,8 +301,17 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.maxraftstate = maxraftstate
 	kv.applyCh = make(chan raft.ApplyMsg)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
-	kv.data = make(map[string]string)
-	kv.request = make(map[int64]Request)
+
+	snapshot := persister.ReadSnapshot()
+	if len(snapshot) > 0 {
+		var sd SnapshotData
+		raft.FromByte(snapshot, &sd)
+		kv.data = sd.Data
+		kv.request = make(map[int64]Request)
+	} else {
+		kv.data = make(map[string]DataEntry)
+		kv.request = make(map[int64]Request)
+	}
 
 	go kv.applyMsgReceiver()
 

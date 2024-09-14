@@ -11,10 +11,10 @@ func TestTimeout(t *testing.T) {
 
 func TestCoder(t *testing.T) {
 	p := Persistence{}
-	stateByte := toByte(p.state())
+	stateByte := ToByte(p.state())
 	var state PersistentState
-	fromByte(stateByte, &state)
-	if !bytes.Equal(stateByte, toByte(state)) {
+	FromByte(stateByte, &state)
+	if !bytes.Equal(stateByte, ToByte(state)) {
 		t.Failed()
 	}
 }

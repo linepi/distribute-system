@@ -37,7 +37,7 @@ func cmd2str(cmd interface{}) string {
 	}
 }
 
-func toByte(i interface{}) []byte {
+func ToByte(i interface{}) []byte {
 	w := new(bytes.Buffer)
 	e := labgob.NewEncoder(w)
 	err := e.Encode(i)
@@ -46,7 +46,7 @@ func toByte(i interface{}) []byte {
 	return w.Bytes()
 }
 
-func fromByte(bs []byte, i interface{}) {
+func FromByte(bs []byte, i interface{}) {
 	r := bytes.NewBuffer(bs)
 	d := labgob.NewDecoder(r)
 	err := d.Decode(i)

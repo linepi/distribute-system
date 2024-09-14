@@ -131,6 +131,7 @@ type Raft struct {
 	snapshot          []byte
 	snapshotLastIndex int
 	snapshotLastTerm  int
+	curStateSize      atomic.Int64
 
 	// global channel for waking up rpc senders
 	wakeups []chan bool
@@ -186,8 +187,10 @@ func (p *Persistence) state() PersistentState {
 //
 // NO lock is needed
 func (rf *Raft) persist(persistence Persistence) {
+	stateBytes := ToByte(persistence.state())
+	rf.curStateSize.Store(int64(len(stateBytes)))
 	rf.persister.Save(
-		toByte(persistence.state()),
+		stateBytes,
 		persistence.Snapshot,
 	)
 }
@@ -199,13 +202,14 @@ func (rf *Raft) readPersist(rstate []byte, rsnapshot []byte) {
 		return
 	}
 	var state PersistentState
-	fromByte(rstate, &state)
+	FromByte(rstate, &state)
 
 	rf.setTerm(state.CurrentTerm)
 	rf.setVotedFor(state.VotedFor)
 	rf.muLog.Lock()
 	rf.log = state.Log
 	rf.snapshot = rsnapshot
+	rf.curStateSize.Store(int64(len(rstate)))
 	rf.snapshotLastIndex = state.SnapshotLastIndex
 	rf.snapshotLastTerm = state.SnapshotLastTerm
 	rf.muLog.Unlock()
@@ -401,6 +405,9 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 			reply.Info = "Same snapshot"
 			return
 		}
+	} else if mayLogIndex < 0 {
+		reply.Info = "Clear all log"
+		rf.log = []logEntry{}
 	} else if mayLogIndex > len(rf.log) || len(rf.log) == 0 || rf.log[mayLogIndex-1].Term != rf.snapshotLastTerm {
 		reply.Info = "Clear all log"
 		rf.log = []logEntry{}
@@ -808,6 +815,10 @@ func (rf *Raft) UpdateLastLogTerm() int {
 	} else {
 		return 0
 	}
+}
+
+func (rf *Raft) CurrentStateSize() int64 {
+	return rf.curStateSize.Load()
 }
 
 // Kill the tester doesn't halt goroutines created by Raft after each test,

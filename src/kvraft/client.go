@@ -91,6 +91,27 @@ func (ck *Clerk) sendGetRpc(key *string, requestId int64, buffer chan *GetReply,
 	}
 }
 
+func (ck *Clerk) sendFinishRpc(requestId int64, buffer chan *FinishReply, i int) {
+	rpcid := rpcId.Add(1)
+	args := FinishArgs{requestId, i, rpcid}
+	reply := FinishReply{}
+
+	logPrefix := fmt.Sprintf("[c%v][req%v][rpc%v]", ck.id, requestId&0xffffffff, rpcid)
+	Log.Printf("%v start rpc Finish() to s%v\n", logPrefix, i)
+	ok := ck.servers[i].Call("KVServer.Finish", &args, &reply)
+	if ok {
+		Log.Printf("%v Finish() from s%v, Err: %v\n",
+			logPrefix, i, reply.Err)
+
+		if reply.Err == OK {
+			ck.leaderIndex.Store(int32(args.ServerId))
+			buffer <- &reply
+		}
+	} else {
+		Log.Printf("%v rpc Finish() failed to s%v\n", logPrefix, i)
+	}
+}
+
 // return wake by chan
 func sleepOnChan(c chan bool, duration time.Duration) bool {
 	select {

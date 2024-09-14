@@ -33,3 +33,13 @@ type GetReply struct {
 	Err   Err
 	Value string
 }
+
+type FinishArgs struct {
+	Id       int64
+	ServerId int
+	RpcId    int32
+}
+
+type FinishReply struct {
+	Err Err
+}
