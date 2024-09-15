@@ -14,7 +14,6 @@ import (
 )
 import "6.5840/labrpc"
 import "bytes"
-import "log"
 import "sync"
 import "sync/atomic"
 import "testing"
@@ -164,14 +163,13 @@ func (cfg *config) checkLogs(i int, m ApplyMsg) (string, bool) {
 	v := m.Command
 	for j := 0; j < len(cfg.logs); j++ {
 		if old, oldok := cfg.logs[j][m.CommandIndex]; oldok && old != v {
-			Log.Printf("When peer %v apply %v:\n", i, m)
-			Log.Printf("find another peer %v's command is %v\n", j, old)
-			Log.Printf("peer %v's log: %v\n", i, cfg.logs[i])
-			Log.Printf("peer %v's log: %v\n", j, cfg.logs[j])
+			fmt.Printf("When peer %v apply %v:\n", i, m)
+			fmt.Printf("find another peer %v's command is %v\n", j, old)
+			fmt.Printf("peer %v's log: %v\n", i, cfg.logs[i])
+			fmt.Printf("peer %v's log: %v\n", j, cfg.logs[j])
 			// some server has already committed a different value for this entry!
 			err_msg = fmt.Sprintf("commit index=%v server=%v %v != server=%v %v",
 				m.CommandIndex, i, m.Command, j, old)
-			cfg.Errorf(err_msg)
 		}
 	}
 	_, prevok := cfg.logs[i][m.CommandIndex-1]
@@ -209,7 +207,7 @@ func (cfg *config) applier(i int, applyCh chan ApplyMsg) {
 // returns "" or error string
 func (cfg *config) ingestSnap(i int, snapshot []byte, index int) string {
 	if snapshot == nil {
-		log.Fatalf("nil snapshot")
+		cfg.Errorf("nil snapshot")
 		return "nil snapshot"
 	}
 	r := bytes.NewBuffer(snapshot)
@@ -616,12 +614,12 @@ func (cfg *config) one(cmd interface{}, expectedServers int, retry bool) int {
 			t1 := time.Now()
 			for time.Since(t1).Seconds() < 2 {
 				nd, cmd1 := cfg.nCommitted(index)
-				Log.Printf("one call nCommited(%v) -> (%v, %v)\n", index, nd, cmd2str(cmd1))
+				Log.Printf("one call nCommited(%v) -> (nd: %v, cmd: %v)\n", index, nd, cmd2str(cmd1))
 				if nd > 0 && nd >= expectedServers {
 					// committed
 					if cmd1 == cmd {
 						// and it was the command we submitted.
-						Log.Printf("ret one(%v, %v, %v) -> %v\n", cmd2str(cmd), expectedServers, retry, index)
+						Log.Printf("ret one(%v, %v, %v) -> index: %v\n", cmd2str(cmd), expectedServers, retry, index)
 						return index
 					}
 				}
