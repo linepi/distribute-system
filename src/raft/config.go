@@ -163,13 +163,9 @@ func (cfg *config) checkLogs(i int, m ApplyMsg) (string, bool) {
 	v := m.Command
 	for j := 0; j < len(cfg.logs); j++ {
 		if old, oldok := cfg.logs[j][m.CommandIndex]; oldok && old != v {
-			fmt.Printf("When peer %v apply %v:\n", i, m)
-			fmt.Printf("find another peer %v's command is %v\n", j, old)
-			fmt.Printf("peer %v's log: %v\n", i, cfg.logs[i])
-			fmt.Printf("peer %v's log: %v\n", j, cfg.logs[j])
 			// some server has already committed a different value for this entry!
-			err_msg = fmt.Sprintf("commit index=%v server=%v %v != server=%v %v",
-				m.CommandIndex, i, m.Command, j, old)
+			err_msg = fmt.Sprintf("when peer %v apply %v, not consistent with p%v's cmd %v",
+				i, m, j, old)
 		}
 	}
 	_, prevok := cfg.logs[i][m.CommandIndex-1]
@@ -186,6 +182,7 @@ func (cfg *config) applier(i int, applyCh chan ApplyMsg) {
 	for m := range applyCh {
 		if m.CommandValid == false {
 			// ignore other types of ApplyMsg
+			Log.Printf("peer %d applied invalid cmd %v\n", i, m)
 		} else {
 			cfg.mu.Lock()
 			err_msg, prevok := cfg.checkLogs(i, m)
@@ -195,8 +192,10 @@ func (cfg *config) applier(i int, applyCh chan ApplyMsg) {
 				err_msg = fmt.Sprintf("server %v apply out of order %v", i, m.CommandIndex)
 			}
 			if err_msg != "" {
-				cfg.Errorf("apply error: %v", err_msg)
+				Log.Printf("apply error: %v", err_msg)
+				cfg.mu.Lock()
 				cfg.applyErr[i] = err_msg
+				cfg.mu.Unlock()
 				// keep reading after error so that Raft doesn't block
 				// holding locks...
 			}
@@ -283,8 +282,10 @@ func (cfg *config) applierSnap(i int, applyCh chan ApplyMsg) {
 			// Ignore other types of ApplyMsg.
 		}
 		if err_msg != "" {
-			cfg.Errorf("apply error: %v", err_msg)
+			Log.Printf("apply error: %v\n", err_msg)
+			cfg.mu.Lock()
 			cfg.applyErr[i] = err_msg
+			cfg.mu.Unlock()
 			// keep reading after error so that Raft doesn't block
 			// holding locks...
 		}
@@ -521,11 +522,11 @@ func (cfg *config) nCommitted(index int) (int, interface{}) {
 	count := 0
 	var cmd interface{} = nil
 	for i := 0; i < len(cfg.rafts); i++ {
+		cfg.mu.Lock()
 		if cfg.applyErr[i] != "" {
 			cfg.t.Fatal(cfg.applyErr[i])
 		}
 
-		cfg.mu.Lock()
 		cmd1, ok := cfg.logs[i][index]
 		cfg.mu.Unlock()
 

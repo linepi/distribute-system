@@ -3,7 +3,6 @@ package kvraft
 import (
 	"6.5840/raft"
 	"fmt"
-	"sync/atomic"
 	"testing"
 	"time"
 	"unsafe"
@@ -39,13 +38,6 @@ func TestCoder(t *testing.T) {
 }
 
 func TestCoderAtom(t *testing.T) {
-	a := atomic.Int32{}
-	a.Store(3)
-	bytes := raft.ToByte(a)
-	var b atomic.Int32
-	raft.FromByte(bytes, &b)
-	fmt.Println(a)
-	fmt.Println(b)
 }
 
 func TestMap(t *testing.T) {

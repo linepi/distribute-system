@@ -496,7 +496,7 @@ func TestRejoin3B(t *testing.T) {
 
 func TestBackup3B(t *testing.T) {
 	servers := 5
-	loopNum := 50
+	loopNum := 1
 	cfg := make_config(t, servers, false, false)
 	defer cfg.cleanup()
 

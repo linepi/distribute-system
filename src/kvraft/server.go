@@ -15,11 +15,12 @@ const (
 	OpAppend = 0
 	OpPut    = 1
 	OpGet    = 2
+	OpNop    = 3
 )
 
 var (
-	GetWaitTimeout       = raft.Timeout{Fixed: 2000}
-	PutAppendWaitTimeout = raft.Timeout{Fixed: 2000}
+	GetWaitTimeout       = raft.Timeout{Fixed: 1000}
+	PutAppendWaitTimeout = raft.Timeout{Fixed: 1000}
 )
 
 type Op struct {
@@ -88,7 +89,12 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		}
 		return
 	} else {
-		op := Op{OpGet, args.Key, "", args.Id}
+		var op Op
+		if ok {
+			op = Op{OpNop, "", "", args.Id}
+		} else {
+			op = Op{OpGet, args.Key, "", args.Id}
+		}
 		_, _, isStartLeader := kv.rf.Start(op)
 		if !isStartLeader {
 			reply.Err = ErrWrongLeader
@@ -134,7 +140,12 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype
 		reply.Err = OK
 		return
 	} else {
-		op := Op{optype, args.Key, args.Value, args.Id}
+		var op Op
+		if ok {
+			op = Op{OpNop, "", "", args.Id}
+		} else {
+			op = Op{optype, args.Key, args.Value, args.Id}
+		}
 		_, _, isStartLeader := kv.rf.Start(op)
 		if !isStartLeader {
 			reply.Err = ErrWrongLeader
@@ -223,6 +234,7 @@ func (kv *KVServer) applyMsgReceiver() {
 			req, ok := kv.request[op.Id]
 			if !ok || !req.StateMachineUpdated {
 				if !ok {
+					// this will happen if the op request happend in other servers
 					req = Request{true, false, "", nil}
 				} else {
 					req.StateMachineUpdated = true
@@ -245,6 +257,8 @@ func (kv *KVServer) applyMsgReceiver() {
 						} else {
 							req.HasValue = false
 						}
+					} else if op.Type == OpNop {
+
 					} else {
 						log.Fatalf("Not expect")
 					}

@@ -7,33 +7,24 @@ import (
 	"sync/atomic"
 	"time"
 )
-import "crypto/rand"
-import "math/big"
 
 var clerkId atomic.Int32
 
 var (
 	NoLeaderTolerateTime   = raft.Timeout{Fixed: 1000}
-	GetRpcInterval         = raft.Timeout{Fixed: 3000}
-	PutRpcInterval         = raft.Timeout{Fixed: 3000}
-	AppendRpcInterval      = raft.Timeout{Fixed: 3000}
-	RequestIdClearInterval = raft.Timeout{Fixed: 2000}
+	GetRpcInterval         = raft.Timeout{Fixed: 2000}
+	PutRpcInterval         = raft.Timeout{Fixed: 2000}
+	AppendRpcInterval      = raft.Timeout{Fixed: 2000}
+	RequestIdClearInterval = raft.Timeout{Fixed: 3000}
 )
 
 type Clerk struct {
 	servers     []*labrpc.ClientEnd
 	id          int32
-	requestId   atomic.Int32
-	rpcId       atomic.Int32
+	requestId   atomic.Int32 // request id for this clerk, first one will be one
+	rpcId       atomic.Int32 // rpc id for this clerk, first one will be one
 	leaderIndex atomic.Int32 // last thought leader index in servers
 	requestIds  chan int64
-}
-
-func nrand() int64 {
-	maxval := big.NewInt(int64(1) << 62)
-	bigx, _ := rand.Int(rand.Reader, maxval)
-	x := bigx.Int64()
-	return x
 }
 
 func (ck *Clerk) newReqeustId() int64 {
@@ -162,12 +153,10 @@ func (ck *Clerk) Get(key string) string {
 		}
 		i = (i + 1) % len(ck.servers)
 	}
-	select {
-	case reply = <-replyBuffer:
-		done.Store(true)
-		ck.requestIds <- requestIdGet
-		return reply.Value
-	}
+	reply = <-replyBuffer
+	done.Store(true)
+	ck.requestIds <- requestIdGet
+	return reply.Value
 }
 
 // PutAppend shared by Put and Append.
@@ -216,12 +205,10 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		}
 		i = (i + 1) % len(ck.servers)
 	}
-	select {
-	case reply = <-replyBuffer:
-		AssertNoReason(reply.Err == OK)
-		done.Store(true)
-		ck.requestIds <- requestIdWrite
-	}
+	reply = <-replyBuffer
+	AssertNoReason(reply.Err == OK)
+	done.Store(true)
+	ck.requestIds <- requestIdWrite
 }
 
 func (ck *Clerk) Put(key string, value string) {

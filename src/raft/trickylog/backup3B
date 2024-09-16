@@ -1,0 +1,486 @@
+21:08:23.779197 config.go:410: disconnect p0
+21:08:23.780184 raft.go:1263: Make raft peer 0 done
+21:08:23.780650 config.go:410: disconnect p1
+21:08:23.780794 raft.go:1263: Make raft peer 1 done
+21:08:23.780884 config.go:410: disconnect p2
+21:08:23.781463 raft.go:1263: Make raft peer 2 done
+21:08:23.781616 config.go:410: disconnect p3
+21:08:23.781758 raft.go:1263: Make raft peer 3 done
+21:08:23.781863 config.go:410: disconnect p4
+21:08:23.782060 raft.go:1263: Make raft peer 4 done
+21:08:23.782155 config.go:385: connect p0
+21:08:23.782171 config.go:385: connect p1
+21:08:23.782186 config.go:385: connect p2
+21:08:23.782200 config.go:385: connect p3
+21:08:23.782225 config.go:385: connect p4
+21:08:23.782244 config.go:646: Test (3B): leader backs up quickly over incorrect follower logs ...
+21:08:23.782271 config.go:589: start one(5403058148032573, 5, true)
+21:08:24.414470 raft.go:1106: [t0-Follower@p1] follower election timeout
+21:08:24.415373 raft.go:321: [t1-Candidate@p1][513] try RequestVote({T: 1, Id: 1, LastLogIndex: 0, LastLogTerm: 0}) to p4
+21:08:24.415389 raft.go:321: [t1-Candidate@p1][769] try RequestVote({T: 1, Id: 1, LastLogIndex: 0, LastLogTerm: 0}) to p3
+21:08:24.415433 raft.go:321: [t1-Candidate@p1][257] try RequestVote({T: 1, Id: 1, LastLogIndex: 0, LastLogTerm: 0}) to p0
+21:08:24.415445 raft.go:321: [t1-Candidate@p1][1025] try RequestVote({T: 1, Id: 1, LastLogIndex: 0, LastLogTerm: 0}) to p2
+21:08:24.416132 raft.go:483: [t0-Follower@p2][1025] cvt to follower by RequestVoteCall({T: 1, Id: 1, LastLogIndex: 0, LastLogTerm: 0})
+21:08:24.416147 raft.go:483: [t0-Follower@p3][769] cvt to follower by RequestVoteCall({T: 1, Id: 1, LastLogIndex: 0, LastLogTerm: 0})
+21:08:24.416189 raft.go:483: [t0-Follower@p0][257] cvt to follower by RequestVoteCall({T: 1, Id: 1, LastLogIndex: 0, LastLogTerm: 0})
+21:08:24.416283 raft.go:505: [t0-Follower@p2][1025] give p1 vote(newly-give: true)
+21:08:24.416319 raft.go:505: [t0-Follower@p3][769] give p1 vote(newly-give: true)
+21:08:24.416322 raft.go:505: [t0-Follower@p0][257] give p1 vote(newly-give: true)
+21:08:24.416635 raft.go:483: [t0-Follower@p4][513] cvt to follower by RequestVoteCall({T: 1, Id: 1, LastLogIndex: 0, LastLogTerm: 0})
+21:08:24.416659 raft.go:326: [t1-Candidate@p1][769] done RequestVote(use 1 ms) to p3, which return {T: 0, Voted: true}
+21:08:24.416769 raft.go:848: [t1-Candidate@p1][769] get a vote reply {T: 0, Voted: true}, voteNum now is 1
+21:08:24.416808 raft.go:505: [t0-Follower@p4][513] give p1 vote(newly-give: true)
+21:08:24.416848 raft.go:326: [t1-Candidate@p1][257] done RequestVote(use 1 ms) to p0, which return {T: 0, Voted: true}
+21:08:24.416898 raft.go:326: [t1-Candidate@p1][1025] done RequestVote(use 1 ms) to p2, which return {T: 0, Voted: true}
+21:08:24.416941 raft.go:848: [t1-Candidate@p1][257] get a vote reply {T: 0, Voted: true}, voteNum now is 2
+21:08:24.416971 raft.go:861: [t1-Candidate@p1][257] After get 3 number of votes, I'm Leader!
+21:08:24.417022 raft.go:839: [t1-Leader@p1] election done
+21:08:24.417130 raft.go:326: [t1-Leader@p1][513] done RequestVote(use 1 ms) to p4, which return {T: 0, Voted: true}
+21:08:24.417248 raft.go:321: [t1-Leader@p1][1281] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 0, PrevLogTerm: 0, EntriesLen: 0, LeaderCommit: 0}) to p3
+21:08:24.417255 raft.go:321: [t1-Leader@p1][1537] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 0, PrevLogTerm: 0, EntriesLen: 0, LeaderCommit: 0}) to p2
+21:08:24.417278 raft.go:321: [t1-Leader@p1][1793] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 0, PrevLogTerm: 0, EntriesLen: 0, LeaderCommit: 0}) to p4
+21:08:24.417285 raft.go:321: [t1-Leader@p1][2049] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 0, PrevLogTerm: 0, EntriesLen: 0, LeaderCommit: 0}) to p0
+21:08:24.418216 raft.go:682: [t1-Follower@p3][1281] log length from 0 to 0
+21:08:24.418329 raft.go:682: [t1-Follower@p0][2049] log length from 0 to 0
+21:08:24.418220 raft.go:682: [t1-Follower@p2][1537] log length from 0 to 0
+21:08:24.418878 raft.go:326: [t1-Leader@p1][2049] done AppendEntries(use 1 ms) to p0, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.419334 raft.go:326: [t1-Leader@p1][1281] done AppendEntries(use 2 ms) to p3, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.419376 raft.go:326: [t1-Leader@p1][1537] done AppendEntries(use 2 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.419444 raft.go:953: [t1-Leader@p1][2049] On AppendEntriesReply nextIndex[0] from 1 to 1
+21:08:24.419466 raft.go:682: [t1-Follower@p4][1793] log length from 0 to 0
+21:08:24.419508 raft.go:953: [t1-Leader@p1][1281] On AppendEntriesReply nextIndex[3] from 1 to 1
+21:08:24.419547 raft.go:953: [t1-Leader@p1][1537] On AppendEntriesReply nextIndex[2] from 1 to 1
+21:08:24.419931 raft.go:326: [t1-Leader@p1][1793] done AppendEntries(use 2 ms) to p4, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.420005 raft.go:953: [t1-Leader@p1][1793] On AppendEntriesReply nextIndex[4] from 1 to 1
+21:08:24.439591 raft.go:751: [t1-Leader@p1] Start(5403058148032573) -> (index:1,term:1,isLeader:true)
+21:08:24.439636 config.go:618: one call nCommited(1) -> (nd: 0, cmd: <nil>)
+21:08:24.443726 raft.go:1152: wakeup by 1 cmd
+21:08:24.443795 raft.go:1152: wakeup by 1 cmd
+21:08:24.443813 raft.go:1152: wakeup by 1 cmd
+21:08:24.443872 raft.go:1152: wakeup by 1 cmd
+21:08:24.443953 raft.go:321: [t1-Leader@p1][2561] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 0, PrevLogTerm: 0, EntriesLen: 1, LeaderCommit: 0}) to p0
+21:08:24.443969 raft.go:321: [t1-Leader@p1][2305] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 0, PrevLogTerm: 0, EntriesLen: 1, LeaderCommit: 0}) to p4
+21:08:24.444047 raft.go:321: [t1-Leader@p1][3073] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 0, PrevLogTerm: 0, EntriesLen: 1, LeaderCommit: 0}) to p3
+21:08:24.443972 raft.go:321: [t1-Leader@p1][2817] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 0, PrevLogTerm: 0, EntriesLen: 1, LeaderCommit: 0}) to p2
+21:08:24.444676 raft.go:682: [t1-Follower@p4][2305] log length from 0 to 1
+21:08:24.444929 raft.go:682: [t1-Follower@p0][2561] log length from 0 to 1
+21:08:24.445265 raft.go:326: [t1-Leader@p1][2305] done AppendEntries(use 1 ms) to p4, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.445330 raft.go:953: [t1-Leader@p1][2305] On AppendEntriesReply nextIndex[4] from 1 to 2
+21:08:24.445391 raft.go:682: [t1-Follower@p3][3073] log length from 0 to 1
+21:08:24.445583 raft.go:326: [t1-Leader@p1][2561] done AppendEntries(use 1 ms) to p0, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.445638 raft.go:682: [t1-Follower@p2][2817] log length from 0 to 1
+21:08:24.445657 raft.go:953: [t1-Leader@p1][2561] On AppendEntriesReply nextIndex[0] from 1 to 2
+21:08:24.445693 raft.go:894: [t1-Leader@p1][2561] update commitIndex to 1
+21:08:24.445763 raft.go:707: [t1-Leader@p1] applied CMD {index: 1, cmd: 5403058148032573} to buffer
+21:08:24.445851 raft.go:321: [t1-Leader@p1][3329] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p4
+21:08:24.445910 raft.go:326: [t1-Leader@p1][3073] done AppendEntries(use 1 ms) to p3, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.445973 raft.go:953: [t1-Leader@p1][3073] On AppendEntriesReply nextIndex[3] from 1 to 2
+21:08:24.446024 raft.go:321: [t1-Leader@p1][3585] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 0, PrevLogTerm: 0, EntriesLen: 1, LeaderCommit: 1}) to p2
+21:08:24.446135 raft.go:321: [t1-Leader@p1][4097] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p3
+21:08:24.446156 raft.go:326: [t1-Leader@p1][2817] done AppendEntries(use 1 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.446223 raft.go:953: [t1-Leader@p1][2817] On AppendEntriesReply nextIndex[2] from 1 to 2
+21:08:24.446043 raft.go:321: [t1-Leader@p1][3841] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p0
+21:08:24.446556 raft.go:682: [t1-Follower@p4][3329] log length from 1 to 1
+21:08:24.446597 raft.go:682: [t1-Follower@p2][3585] log length from 1 to 1
+21:08:24.446702 raft.go:682: [t1-Follower@p0][3841] log length from 1 to 1
+21:08:24.446756 raft.go:687: [t1-Follower@p4][3329] commitIndex from 0 to 1
+21:08:24.446837 raft.go:687: [t1-Follower@p0][3841] commitIndex from 0 to 1
+21:08:24.446961 raft.go:707: [t1-Follower@p4] applied CMD {index: 1, cmd: 5403058148032573} to buffer
+21:08:24.446997 raft.go:707: [t1-Follower@p0] applied CMD {index: 1, cmd: 5403058148032573} to buffer
+21:08:24.447131 raft.go:682: [t1-Follower@p3][4097] log length from 1 to 1
+21:08:24.447250 raft.go:326: [t1-Leader@p1][3841] done AppendEntries(use 0 ms) to p0, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.447284 raft.go:687: [t1-Follower@p3][4097] commitIndex from 0 to 1
+21:08:24.447302 raft.go:326: [t1-Leader@p1][3329] done AppendEntries(use 1 ms) to p4, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.446769 raft.go:687: [t1-Follower@p2][3585] commitIndex from 0 to 1
+21:08:24.447389 raft.go:707: [t1-Follower@p3] applied CMD {index: 1, cmd: 5403058148032573} to buffer
+21:08:24.447317 raft.go:953: [t1-Leader@p1][3841] On AppendEntriesReply nextIndex[0] from 2 to 2
+21:08:24.447470 raft.go:707: [t1-Follower@p2] applied CMD {index: 1, cmd: 5403058148032573} to buffer
+21:08:24.447565 raft.go:953: [t1-Leader@p1][3329] On AppendEntriesReply nextIndex[4] from 2 to 2
+21:08:24.447630 raft.go:326: [t1-Leader@p1][4097] done AppendEntries(use 1 ms) to p3, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.447707 raft.go:326: [t1-Leader@p1][3585] done AppendEntries(use 1 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.447732 raft.go:953: [t1-Leader@p1][4097] On AppendEntriesReply nextIndex[3] from 2 to 2
+21:08:24.447813 raft.go:953: [t1-Leader@p1][3585] On AppendEntriesReply nextIndex[2] from 2 to 2
+21:08:24.459985 config.go:618: one call nCommited(1) -> (nd: 5, cmd: 5403058148032573)
+21:08:24.460030 config.go:623: ret one(5403058148032573, 5, true) -> index: 1
+21:08:24.460050 config.go:457: start checkOneLeader
+21:08:24.548933 raft.go:321: [t1-Leader@p1][4353] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p4
+21:08:24.549350 raft.go:682: [t1-Follower@p4][4353] log length from 1 to 1
+21:08:24.549715 raft.go:326: [t1-Leader@p1][4353] done AppendEntries(use 0 ms) to p4, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.549777 raft.go:953: [t1-Leader@p1][4353] On AppendEntriesReply nextIndex[4] from 2 to 2
+21:08:24.557350 raft.go:321: [t1-Leader@p1][4609] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:24.557931 raft.go:682: [t1-Follower@p2][4609] log length from 1 to 1
+21:08:24.558500 raft.go:326: [t1-Leader@p1][4609] done AppendEntries(use 1 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.558592 raft.go:953: [t1-Leader@p1][4609] On AppendEntriesReply nextIndex[2] from 2 to 2
+21:08:24.581130 raft.go:321: [t1-Leader@p1][4865] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p0
+21:08:24.581655 raft.go:682: [t1-Follower@p0][4865] log length from 1 to 1
+21:08:24.582026 raft.go:321: [t1-Leader@p1][5121] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p3
+21:08:24.582236 raft.go:326: [t1-Leader@p1][4865] done AppendEntries(use 1 ms) to p0, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.582337 raft.go:953: [t1-Leader@p1][4865] On AppendEntriesReply nextIndex[0] from 2 to 2
+21:08:24.582500 raft.go:682: [t1-Follower@p3][5121] log length from 1 to 1
+21:08:24.582894 raft.go:326: [t1-Leader@p1][5121] done AppendEntries(use 0 ms) to p3, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.582966 raft.go:953: [t1-Leader@p1][5121] On AppendEntriesReply nextIndex[3] from 2 to 2
+21:08:24.657948 raft.go:321: [t1-Leader@p1][5377] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p4
+21:08:24.658406 raft.go:682: [t1-Follower@p4][5377] log length from 1 to 1
+21:08:24.658736 raft.go:321: [t1-Leader@p1][5633] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:24.658857 raft.go:326: [t1-Leader@p1][5377] done AppendEntries(use 0 ms) to p4, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.658933 raft.go:953: [t1-Leader@p1][5377] On AppendEntriesReply nextIndex[4] from 2 to 2
+21:08:24.659078 raft.go:682: [t1-Follower@p2][5633] log length from 1 to 1
+21:08:24.659484 raft.go:326: [t1-Leader@p1][5633] done AppendEntries(use 0 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.659550 raft.go:953: [t1-Leader@p1][5633] On AppendEntriesReply nextIndex[2] from 2 to 2
+21:08:24.707850 raft.go:321: [t1-Leader@p1][5889] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p3
+21:08:24.708448 raft.go:682: [t1-Follower@p3][5889] log length from 1 to 1
+21:08:24.708902 raft.go:326: [t1-Leader@p1][5889] done AppendEntries(use 0 ms) to p3, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.708988 raft.go:953: [t1-Leader@p1][5889] On AppendEntriesReply nextIndex[3] from 2 to 2
+21:08:24.712217 raft.go:321: [t1-Leader@p1][6145] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p0
+21:08:24.712568 raft.go:682: [t1-Follower@p0][6145] log length from 1 to 1
+21:08:24.712988 raft.go:326: [t1-Leader@p1][6145] done AppendEntries(use 0 ms) to p0, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.713052 raft.go:953: [t1-Leader@p1][6145] On AppendEntriesReply nextIndex[0] from 2 to 2
+21:08:24.763776 raft.go:321: [t1-Leader@p1][6401] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:24.764116 raft.go:682: [t1-Follower@p2][6401] log length from 1 to 1
+21:08:24.764450 raft.go:326: [t1-Leader@p1][6401] done AppendEntries(use 0 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.764509 raft.go:953: [t1-Leader@p1][6401] On AppendEntriesReply nextIndex[2] from 2 to 2
+21:08:24.790088 raft.go:321: [t1-Leader@p1][6657] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p4
+21:08:24.790455 raft.go:682: [t1-Follower@p4][6657] log length from 1 to 1
+21:08:24.790874 raft.go:326: [t1-Leader@p1][6657] done AppendEntries(use 0 ms) to p4, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.790985 raft.go:953: [t1-Leader@p1][6657] On AppendEntriesReply nextIndex[4] from 2 to 2
+21:08:24.823940 raft.go:321: [t1-Leader@p1][6913] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p3
+21:08:24.824314 raft.go:682: [t1-Follower@p3][6913] log length from 1 to 1
+21:08:24.824720 raft.go:326: [t1-Leader@p1][6913] done AppendEntries(use 0 ms) to p3, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.824788 raft.go:953: [t1-Leader@p1][6913] On AppendEntriesReply nextIndex[3] from 2 to 2
+21:08:24.861880 raft.go:321: [t1-Leader@p1][7169] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p0
+21:08:24.862291 raft.go:682: [t1-Follower@p0][7169] log length from 1 to 1
+21:08:24.862636 raft.go:326: [t1-Leader@p1][7169] done AppendEntries(use 0 ms) to p0, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.862691 raft.go:953: [t1-Leader@p1][7169] On AppendEntriesReply nextIndex[0] from 2 to 2
+21:08:24.871187 raft.go:321: [t1-Leader@p1][7425] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:24.871645 raft.go:682: [t1-Follower@p2][7425] log length from 1 to 1
+21:08:24.872199 raft.go:326: [t1-Leader@p1][7425] done AppendEntries(use 0 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.872322 raft.go:953: [t1-Leader@p1][7425] On AppendEntriesReply nextIndex[2] from 2 to 2
+21:08:24.926209 raft.go:321: [t1-Leader@p1][7681] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p4
+21:08:24.926723 raft.go:682: [t1-Follower@p4][7681] log length from 1 to 1
+21:08:24.927082 raft.go:326: [t1-Leader@p1][7681] done AppendEntries(use 0 ms) to p4, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.927146 raft.go:953: [t1-Leader@p1][7681] On AppendEntriesReply nextIndex[4] from 2 to 2
+21:08:24.935357 raft.go:321: [t1-Leader@p1][7937] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p3
+21:08:24.935679 raft.go:682: [t1-Follower@p3][7937] log length from 1 to 1
+21:08:24.936005 raft.go:326: [t1-Leader@p1][7937] done AppendEntries(use 0 ms) to p3, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.936084 raft.go:953: [t1-Leader@p1][7937] On AppendEntriesReply nextIndex[3] from 2 to 2
+21:08:24.961584 raft.go:312: GetState[0](T: 1, State: Follower)
+21:08:24.961618 raft.go:312: GetState[1](T: 1, State: Leader)
+21:08:24.961634 raft.go:312: GetState[2](T: 1, State: Follower)
+21:08:24.961676 raft.go:312: GetState[3](T: 1, State: Follower)
+21:08:24.961689 raft.go:312: GetState[4](T: 1, State: Follower)
+21:08:24.961700 config.go:482: checkOneLeader return 1
+21:08:24.961710 config.go:410: disconnect p3
+21:08:24.961739 config.go:410: disconnect p4
+21:08:24.961754 config.go:410: disconnect p0
+21:08:24.961938 raft.go:751: [t1-Leader@p1] Start(7829704129134981) -> (index:2,term:1,isLeader:true)
+21:08:24.966804 raft.go:1152: wakeup by 1 cmd
+21:08:24.966855 raft.go:1152: wakeup by 1 cmd
+21:08:24.966869 raft.go:1152: wakeup by 1 cmd
+21:08:24.966887 raft.go:1152: wakeup by 1 cmd
+21:08:24.966940 raft.go:321: [t1-Leader@p1][8449] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:24.966943 raft.go:321: [t1-Leader@p1][8193] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p2
+21:08:24.966959 raft.go:321: [t1-Leader@p1][8705] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:24.967025 raft.go:321: [t1-Leader@p1][8961] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:24.967293 raft.go:682: [t1-Follower@p2][8193] log length from 1 to 2
+21:08:24.967709 raft.go:326: [t1-Leader@p1][8193] done AppendEntries(use 0 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:24.967784 raft.go:953: [t1-Leader@p1][8193] On AppendEntriesReply nextIndex[2] from 2 to 3
+21:08:25.072114 raft.go:321: [t1-Leader@p1][9217] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:25.075309 raft.go:321: [t1-Leader@p1][9473] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:25.089635 raft.go:321: [t1-Leader@p1][9729] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:25.090021 raft.go:682: [t1-Follower@p2][9729] log length from 2 to 2
+21:08:25.090387 raft.go:326: [t1-Leader@p1][9729] done AppendEntries(use 0 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:25.090462 raft.go:953: [t1-Leader@p1][9729] On AppendEntriesReply nextIndex[2] from 3 to 3
+21:08:25.098870 raft.go:321: [t1-Leader@p1][9985] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:25.177890 raft.go:321: [t1-Leader@p1][10241] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:25.187348 raft.go:321: [t1-Leader@p1][10497] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:25.216861 raft.go:321: [t1-Leader@p1][10753] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:25.217263 raft.go:682: [t1-Follower@p2][10753] log length from 2 to 2
+21:08:25.217817 raft.go:326: [t1-Leader@p1][10753] done AppendEntries(use 0 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:25.217911 raft.go:953: [t1-Leader@p1][10753] On AppendEntriesReply nextIndex[2] from 3 to 3
+21:08:25.218020 raft.go:321: [t1-Leader@p1][11009] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:25.297309 raft.go:321: [t1-Leader@p1][11265] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:25.303538 raft.go:321: [t1-Leader@p1][11521] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:25.344478 raft.go:321: [t1-Leader@p1][11777] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:25.367127 raft.go:321: [t1-Leader@p1][12033] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:25.367676 raft.go:682: [t1-Follower@p2][12033] log length from 2 to 2
+21:08:25.368234 raft.go:326: [t1-Leader@p1][12033] done AppendEntries(use 1 ms) to p2, which return {Term: 1, Suc: true, Info: ""}
+21:08:25.368319 raft.go:953: [t1-Leader@p1][12033] On AppendEntriesReply nextIndex[2] from 3 to 3
+21:08:25.387390 raft.go:329: [t1-Leader@p1][10497] call AppendEntries(use 199 ms) to p4 failed
+21:08:25.423897 raft.go:321: [t1-Leader@p1][12289] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:25.440411 raft.go:321: [t1-Leader@p1][12545] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:25.462189 config.go:410: disconnect p1
+21:08:25.462272 config.go:410: disconnect p2
+21:08:25.462294 config.go:385: connect p3
+21:08:25.462309 config.go:385: connect p4
+21:08:25.462353 config.go:385: connect p0
+21:08:25.462386 config.go:589: start one(5469254360724946, 3, true)
+21:08:25.467529 raft.go:321: [t1-Leader@p1][12801] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:25.503186 raft.go:321: [t1-Leader@p1][13057] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:25.506522 raft.go:1106: [t1-Follower@p0] follower election timeout
+21:08:25.507018 raft.go:321: [t2-Candidate@p0][256] try RequestVote({T: 2, Id: 0, LastLogIndex: 1, LastLogTerm: 1}) to p3
+21:08:25.507033 raft.go:321: [t2-Candidate@p0][512] try RequestVote({T: 2, Id: 0, LastLogIndex: 1, LastLogTerm: 1}) to p2
+21:08:25.507056 raft.go:321: [t2-Candidate@p0][768] try RequestVote({T: 2, Id: 0, LastLogIndex: 1, LastLogTerm: 1}) to p4
+21:08:25.507075 raft.go:321: [t2-Candidate@p0][1024] try RequestVote({T: 2, Id: 0, LastLogIndex: 1, LastLogTerm: 1}) to p1
+21:08:25.507405 raft.go:483: [t1-Follower@p3][256] cvt to follower by RequestVoteCall({T: 2, Id: 0, LastLogIndex: 1, LastLogTerm: 1})
+21:08:25.507482 raft.go:483: [t1-Follower@p4][768] cvt to follower by RequestVoteCall({T: 2, Id: 0, LastLogIndex: 1, LastLogTerm: 1})
+21:08:25.507575 raft.go:505: [t1-Follower@p3][256] give p0 vote(newly-give: true)
+21:08:25.507667 raft.go:505: [t1-Follower@p4][768] give p0 vote(newly-give: true)
+21:08:25.507895 raft.go:326: [t2-Candidate@p0][256] done RequestVote(use 0 ms) to p3, which return {T: 1, Voted: true}
+21:08:25.507945 raft.go:326: [t2-Candidate@p0][768] done RequestVote(use 0 ms) to p4, which return {T: 1, Voted: true}
+21:08:25.507991 raft.go:848: [t2-Candidate@p0][256] get a vote reply {T: 1, Voted: true}, voteNum now is 1
+21:08:25.508050 raft.go:848: [t2-Candidate@p0][768] get a vote reply {T: 1, Voted: true}, voteNum now is 2
+21:08:25.508086 raft.go:861: [t2-Candidate@p0][768] After get 3 number of votes, I'm Leader!
+21:08:25.508122 raft.go:839: [t2-Leader@p0] election done
+21:08:25.508581 raft.go:321: [t2-Leader@p0][1280] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:25.508758 raft.go:321: [t2-Leader@p0][1536] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p1
+21:08:25.508951 raft.go:321: [t2-Leader@p0][1792] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p3
+21:08:25.509098 raft.go:321: [t2-Leader@p0][2048] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p4
+21:08:25.509234 raft.go:321: [t2-Leader@p0][2304] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p4
+21:08:25.509431 raft.go:321: [t2-Leader@p0][2560] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:25.509638 raft.go:321: [t2-Leader@p0][2816] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p1
+21:08:25.510175 raft.go:321: [t2-Leader@p0][3072] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p3
+21:08:25.510695 raft.go:682: [t2-Follower@p4][2304] log length from 1 to 1
+21:08:25.511162 raft.go:326: [t2-Leader@p0][2304] done AppendEntries(use 1 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.511487 raft.go:682: [t2-Follower@p3][3072] log length from 1 to 1
+21:08:25.511730 raft.go:953: [t2-Leader@p0][2304] On AppendEntriesReply nextIndex[4] from 2 to 2
+21:08:25.512391 raft.go:326: [t2-Leader@p0][2048] done AppendEntries(use 3 ms) to p4, which return {Term: 2, Suc: false, Info: "Stale"}
+21:08:25.512602 raft.go:751: [t2-Leader@p0] Start(5469254360724946) -> (index:2,term:2,isLeader:true)
+21:08:25.512630 config.go:618: one call nCommited(2) -> (nd: 0, cmd: <nil>)
+21:08:25.512770 raft.go:326: [t2-Leader@p0][3072] done AppendEntries(use 2 ms) to p3, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.512829 raft.go:953: [t2-Leader@p0][3072] On AppendEntriesReply nextIndex[3] from 2 to 2
+21:08:25.513041 raft.go:326: [t2-Leader@p0][1792] done AppendEntries(use 4 ms) to p3, which return {Term: 2, Suc: false, Info: "Stale"}
+21:08:25.517025 raft.go:1152: wakeup by 1 cmd
+21:08:25.517069 raft.go:1152: wakeup by 1 cmd
+21:08:25.517085 raft.go:1152: wakeup by 1 cmd
+21:08:25.517097 raft.go:1152: wakeup by 1 cmd
+21:08:25.517163 raft.go:321: [t2-Leader@p0][3328] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p1
+21:08:25.517170 raft.go:321: [t2-Leader@p0][3584] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:25.517196 raft.go:321: [t2-Leader@p0][4096] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:25.517202 raft.go:321: [t2-Leader@p0][3840] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p2
+21:08:25.518412 raft.go:682: [t2-Follower@p4][3584] log length from 1 to 2
+21:08:25.518493 raft.go:682: [t2-Follower@p3][4096] log length from 1 to 2
+21:08:25.519041 raft.go:326: [t2-Leader@p0][4096] done AppendEntries(use 1 ms) to p3, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.519135 raft.go:953: [t2-Leader@p0][4096] On AppendEntriesReply nextIndex[3] from 2 to 3
+21:08:25.519178 raft.go:326: [t2-Leader@p0][3584] done AppendEntries(use 1 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.519240 raft.go:953: [t2-Leader@p0][3584] On AppendEntriesReply nextIndex[4] from 2 to 3
+21:08:25.519265 raft.go:894: [t2-Leader@p0][3584] update commitIndex to 2
+21:08:25.519325 raft.go:707: [t2-Leader@p0] applied CMD {index: 2, cmd: 5469254360724946} to buffer
+21:08:25.519384 raft.go:321: [t2-Leader@p0][4352] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p4
+21:08:25.519548 raft.go:321: [t2-Leader@p0][4608] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p2
+21:08:25.519946 raft.go:321: [t2-Leader@p0][4864] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p3
+21:08:25.520193 raft.go:321: [t2-Leader@p0][5120] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p1
+21:08:25.520568 raft.go:682: [t2-Follower@p4][4352] log length from 2 to 2
+21:08:25.522583 raft.go:687: [t2-Follower@p4][4352] commitIndex from 1 to 2
+21:08:25.522740 raft.go:707: [t2-Follower@p4] applied CMD {index: 2, cmd: 5469254360724946} to buffer
+21:08:25.523054 raft.go:682: [t2-Follower@p3][4864] log length from 2 to 2
+21:08:25.523407 raft.go:687: [t2-Follower@p3][4864] commitIndex from 1 to 2
+21:08:25.523967 raft.go:707: [t2-Follower@p3] applied CMD {index: 2, cmd: 5469254360724946} to buffer
+21:08:25.524064 raft.go:326: [t2-Leader@p0][4352] done AppendEntries(use 4 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.524134 raft.go:953: [t2-Leader@p0][4352] On AppendEntriesReply nextIndex[4] from 3 to 3
+21:08:25.524462 raft.go:326: [t2-Leader@p0][4864] done AppendEntries(use 4 ms) to p3, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.524538 raft.go:953: [t2-Leader@p0][4864] On AppendEntriesReply nextIndex[3] from 3 to 3
+21:08:25.532729 config.go:618: one call nCommited(2) -> (nd: 3, cmd: 5469254360724946)
+21:08:25.532766 config.go:623: ret one(5469254360724946, 3, true) -> index: 2
+21:08:25.532808 config.go:457: start checkOneLeader
+21:08:25.546003 raft.go:321: [t1-Leader@p1][13313] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:25.559813 raft.go:321: [t1-Leader@p1][13569] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:25.570461 raft.go:321: [t1-Leader@p1][13825] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:25.619830 raft.go:321: [t2-Leader@p0][5376] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p4
+21:08:25.620304 raft.go:682: [t2-Follower@p4][5376] log length from 2 to 2
+21:08:25.620766 raft.go:326: [t2-Leader@p0][5376] done AppendEntries(use 0 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.620845 raft.go:953: [t2-Leader@p0][5376] On AppendEntriesReply nextIndex[4] from 3 to 3
+21:08:25.642698 raft.go:321: [t1-Leader@p1][14081] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:25.648233 raft.go:321: [t2-Leader@p0][5632] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p2
+21:08:25.667473 raft.go:321: [t2-Leader@p0][5888] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p1
+21:08:25.669721 raft.go:321: [t2-Leader@p0][6144] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p3
+21:08:25.670220 raft.go:682: [t2-Follower@p3][6144] log length from 2 to 2
+21:08:25.670712 raft.go:326: [t2-Leader@p0][6144] done AppendEntries(use 0 ms) to p3, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.670807 raft.go:953: [t2-Leader@p0][6144] On AppendEntriesReply nextIndex[3] from 3 to 3
+21:08:25.694264 raft.go:321: [t1-Leader@p1][14337] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:25.704445 raft.go:321: [t1-Leader@p1][14593] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:25.719727 raft.go:321: [t1-Leader@p1][14849] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:25.734417 raft.go:321: [t2-Leader@p0][6400] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p4
+21:08:25.734847 raft.go:682: [t2-Follower@p4][6400] log length from 2 to 2
+21:08:25.735261 raft.go:326: [t2-Leader@p0][6400] done AppendEntries(use 0 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.735334 raft.go:953: [t2-Leader@p0][6400] On AppendEntriesReply nextIndex[4] from 3 to 3
+21:08:25.753579 raft.go:329: [t2-Leader@p0][1280] call AppendEntries(use 244 ms) to p2 failed
+21:08:25.768842 raft.go:321: [t2-Leader@p0][6656] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p1
+21:08:25.777408 raft.go:321: [t1-Leader@p1][15105] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:25.785024 raft.go:321: [t2-Leader@p0][6912] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p2
+21:08:25.808473 raft.go:321: [t1-Leader@p1][15361] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:25.809718 raft.go:321: [t1-Leader@p1][15617] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:25.816634 raft.go:321: [t2-Leader@p0][7168] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p3
+21:08:25.817157 raft.go:682: [t2-Follower@p3][7168] log length from 2 to 2
+21:08:25.817713 raft.go:326: [t2-Leader@p0][7168] done AppendEntries(use 0 ms) to p3, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.817825 raft.go:953: [t2-Leader@p0][7168] On AppendEntriesReply nextIndex[3] from 3 to 3
+21:08:25.840502 raft.go:321: [t1-Leader@p1][15873] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:25.877380 raft.go:321: [t2-Leader@p0][7424] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p4
+21:08:25.877849 raft.go:682: [t2-Follower@p4][7424] log length from 2 to 2
+21:08:25.878306 raft.go:326: [t2-Leader@p0][7424] done AppendEntries(use 0 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.878365 raft.go:953: [t2-Leader@p0][7424] On AppendEntriesReply nextIndex[4] from 3 to 3
+21:08:25.905527 raft.go:321: [t1-Leader@p1][16129] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:25.908717 raft.go:321: [t2-Leader@p0][7680] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p2
+21:08:25.908967 raft.go:321: [t2-Leader@p0][7936] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p1
+21:08:25.923598 raft.go:321: [t1-Leader@p1][16385] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:25.935260 raft.go:321: [t1-Leader@p1][16641] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:25.935354 raft.go:321: [t2-Leader@p0][8192] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p3
+21:08:25.936084 raft.go:682: [t2-Follower@p3][8192] log length from 2 to 2
+21:08:25.936598 raft.go:326: [t2-Leader@p0][8192] done AppendEntries(use 1 ms) to p3, which return {Term: 2, Suc: true, Info: ""}
+21:08:25.936674 raft.go:953: [t2-Leader@p0][8192] On AppendEntriesReply nextIndex[3] from 3 to 3
+21:08:25.973460 raft.go:321: [t1-Leader@p1][16897] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:26.018615 raft.go:321: [t2-Leader@p0][8448] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p2
+21:08:26.019659 raft.go:321: [t2-Leader@p0][8704] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p4
+21:08:26.020052 raft.go:682: [t2-Follower@p4][8704] log length from 2 to 2
+21:08:26.020419 raft.go:326: [t2-Leader@p0][8704] done AppendEntries(use 0 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:26.020515 raft.go:953: [t2-Leader@p0][8704] On AppendEntriesReply nextIndex[4] from 3 to 3
+21:08:26.022917 raft.go:329: [t2-Leader@p0][8448] call AppendEntries(use 4 ms) to p2 failed
+21:08:26.037484 raft.go:321: [t2-Leader@p0][8960] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p3
+21:08:26.037932 raft.go:682: [t2-Follower@p3][8960] log length from 2 to 2
+21:08:26.038450 raft.go:326: [t2-Leader@p0][8960] done AppendEntries(use 0 ms) to p3, which return {Term: 2, Suc: true, Info: ""}
+21:08:26.038514 raft.go:953: [t2-Leader@p0][8960] On AppendEntriesReply nextIndex[3] from 3 to 3
+21:08:26.040614 raft.go:321: [t1-Leader@p1][17153] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:26.043809 raft.go:321: [t1-Leader@p1][17409] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:26.044916 raft.go:321: [t1-Leader@p1][17665] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:26.054439 raft.go:321: [t2-Leader@p0][9216] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p1
+21:08:26.075141 raft.go:321: [t1-Leader@p1][17921] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:26.082429 raft.go:312: GetState[0](T: 2, State: Leader)
+21:08:26.082462 raft.go:312: GetState[3](T: 2, State: Follower)
+21:08:26.082477 raft.go:312: GetState[4](T: 2, State: Follower)
+21:08:26.082493 config.go:482: checkOneLeader return 0
+21:08:26.082507 config.go:410: disconnect p3
+21:08:26.082718 raft.go:751: [t2-Leader@p0] Start(6646006648488939) -> (index:3,term:2,isLeader:true)
+21:08:26.087014 raft.go:1152: wakeup by 1 cmd
+21:08:26.087069 raft.go:1152: wakeup by 1 cmd
+21:08:26.087086 raft.go:1152: wakeup by 1 cmd
+21:08:26.087099 raft.go:1152: wakeup by 1 cmd
+21:08:26.087144 raft.go:321: [t2-Leader@p0][9728] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 2}) to p2
+21:08:26.087147 raft.go:321: [t2-Leader@p0][9472] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 2}) to p1
+21:08:26.087178 raft.go:321: [t2-Leader@p0][9984] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 1, LeaderCommit: 2}) to p3
+21:08:26.087541 raft.go:321: [t2-Leader@p0][10240] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 1, LeaderCommit: 2}) to p4
+21:08:26.088056 raft.go:682: [t2-Follower@p4][10240] log length from 2 to 3
+21:08:26.088462 raft.go:326: [t2-Leader@p0][10240] done AppendEntries(use 0 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:26.088537 raft.go:953: [t2-Leader@p0][10240] On AppendEntriesReply nextIndex[4] from 3 to 4
+21:08:26.180621 raft.go:1106: [t1-Follower@p2] follower election timeout
+21:08:26.180952 raft.go:321: [t2-Candidate@p2][258] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p4
+21:08:26.181059 raft.go:321: [t2-Candidate@p2][514] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p1
+21:08:26.181167 raft.go:321: [t2-Candidate@p2][770] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p3
+21:08:26.181210 raft.go:321: [t2-Candidate@p2][1026] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p0
+21:08:26.187952 raft.go:321: [t1-Leader@p1][18433] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:26.187952 raft.go:321: [t1-Leader@p1][18177] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:26.190214 raft.go:321: [t1-Leader@p1][18689] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:26.196436 raft.go:321: [t1-Leader@p1][18945] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:26.204623 raft.go:321: [t2-Leader@p0][10496] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 2}) to p1
+21:08:26.206800 raft.go:329: [t2-Leader@p0][512] call RequestVote(use 699 ms) to p2 failed
+21:08:26.216004 raft.go:321: [t2-Leader@p0][10752] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 1, LeaderCommit: 2}) to p3
+21:08:26.221202 raft.go:329: [t1-Leader@p1][14081] call AppendEntries(use 578 ms) to p2 failed
+21:08:26.221279 raft.go:321: [t2-Leader@p0][11008] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 3, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p4
+21:08:26.221661 raft.go:682: [t2-Follower@p4][11008] log length from 3 to 3
+21:08:26.222113 raft.go:326: [t2-Leader@p0][11008] done AppendEntries(use 0 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:26.222177 raft.go:953: [t2-Leader@p0][11008] On AppendEntriesReply nextIndex[4] from 4 to 4
+21:08:26.226427 raft.go:329: [t2-Leader@p0][6656] call AppendEntries(use 457 ms) to p1 failed
+21:08:26.226507 raft.go:321: [t2-Leader@p0][11264] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 2}) to p2
+21:08:26.231862 raft.go:329: [t1-Leader@p1][15105] call AppendEntries(use 454 ms) to p2 failed
+21:08:26.287963 raft.go:321: [t2-Candidate@p2][1282] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p0
+21:08:26.310458 raft.go:321: [t1-Leader@p1][19201] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:26.313739 raft.go:321: [t2-Candidate@p2][1538] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p1
+21:08:26.313787 raft.go:321: [t1-Leader@p1][19457] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:26.313828 raft.go:329: [t1-Leader@p1][12801] call AppendEntries(use 846 ms) to p0 failed
+21:08:26.317052 raft.go:321: [t2-Candidate@p2][1794] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p3
+21:08:26.323392 raft.go:321: [t1-Leader@p1][19713] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:26.325655 raft.go:321: [t1-Leader@p1][19969] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:26.330004 raft.go:321: [t2-Candidate@p2][2050] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p4
+21:08:26.334515 raft.go:321: [t2-Leader@p0][11520] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 3, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p4
+21:08:26.335033 raft.go:682: [t2-Follower@p4][11520] log length from 3 to 3
+21:08:26.335573 raft.go:326: [t2-Leader@p0][11520] done AppendEntries(use 0 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:26.335690 raft.go:953: [t2-Leader@p0][11520] On AppendEntriesReply nextIndex[4] from 4 to 4
+21:08:26.347767 raft.go:321: [t2-Leader@p0][11776] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 1, LeaderCommit: 2}) to p3
+21:08:26.347939 raft.go:321: [t2-Leader@p0][12032] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 2}) to p2
+21:08:26.348994 raft.go:321: [t2-Leader@p0][12288] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 2}) to p1
+21:08:26.393946 raft.go:321: [t2-Candidate@p2][2306] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p0
+21:08:26.413480 raft.go:321: [t1-Leader@p1][20225] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:26.430801 raft.go:321: [t1-Leader@p1][20481] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:26.442814 raft.go:321: [t1-Leader@p1][20737] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:26.442801 raft.go:321: [t2-Candidate@p2][2562] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p1
+21:08:26.447066 raft.go:321: [t2-Candidate@p2][2818] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p3
+21:08:26.459615 raft.go:321: [t1-Leader@p1][20993] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:26.467792 raft.go:321: [t2-Candidate@p2][3074] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p4
+21:08:26.478041 raft.go:321: [t2-Leader@p0][12544] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 2}) to p1
+21:08:26.483321 raft.go:321: [t2-Leader@p0][12800] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 3, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p4
+21:08:26.483766 raft.go:682: [t2-Follower@p4][12800] log length from 3 to 3
+21:08:26.484292 raft.go:326: [t2-Leader@p0][12800] done AppendEntries(use 0 ms) to p4, which return {Term: 2, Suc: true, Info: ""}
+21:08:26.484360 raft.go:953: [t2-Leader@p0][12800] On AppendEntriesReply nextIndex[4] from 4 to 4
+21:08:26.488621 raft.go:321: [t2-Leader@p0][13056] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 2}) to p2
+21:08:26.490817 raft.go:321: [t2-Leader@p0][13312] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 1, LeaderCommit: 2}) to p3
+21:08:26.503999 raft.go:329: [t1-Leader@p1][14849] call AppendEntries(use 784 ms) to p0 failed
+21:08:26.506261 raft.go:321: [t2-Candidate@p2][3330] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p0
+21:08:26.527996 raft.go:321: [t1-Leader@p1][21249] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p3
+21:08:26.561747 raft.go:321: [t2-Candidate@p2][3586] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p3
+21:08:26.561783 raft.go:321: [t1-Leader@p1][21505] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p0
+21:08:26.565942 raft.go:321: [t2-Candidate@p2][3842] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p1
+21:08:26.567070 raft.go:321: [t1-Leader@p1][21761] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 0, LeaderCommit: 1}) to p2
+21:08:26.577507 raft.go:321: [t1-Leader@p1][22017] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 1}) to p4
+21:08:26.582922 config.go:410: disconnect p0
+21:08:26.582967 config.go:410: disconnect p1
+21:08:26.582988 config.go:410: disconnect p2
+21:08:26.583006 config.go:410: disconnect p3
+21:08:26.583027 config.go:410: disconnect p4
+21:08:26.583044 config.go:385: connect p1
+21:08:26.583057 config.go:385: connect p2
+21:08:26.583069 config.go:385: connect p3
+21:08:26.583100 config.go:589: start one(5419191993700019, 3, true)
+21:08:26.583318 raft.go:751: [t1-Leader@p1] Start(5419191993700019) -> (index:3,term:1,isLeader:true)
+21:08:26.583386 config.go:618: one call nCommited(3) -> (nd: 0, cmd: <nil>)
+21:08:26.586219 raft.go:1106: [t2-Follower@p3] follower election timeout
+21:08:26.586324 raft.go:321: [t2-Candidate@p2][4098] try RequestVote({T: 2, Id: 2, LastLogIndex: 2, LastLogTerm: 1}) to p4
+21:08:26.587107 raft.go:321: [t3-Candidate@p3][515] try RequestVote({T: 3, Id: 3, LastLogIndex: 2, LastLogTerm: 2}) to p1
+21:08:26.587074 raft.go:321: [t3-Candidate@p3][259] try RequestVote({T: 3, Id: 3, LastLogIndex: 2, LastLogTerm: 2}) to p2
+21:08:26.587217 raft.go:321: [t3-Candidate@p3][1027] try RequestVote({T: 3, Id: 3, LastLogIndex: 2, LastLogTerm: 2}) to p4
+21:08:26.587315 raft.go:1152: wakeup by 1 cmd
+21:08:26.587352 raft.go:1152: wakeup by 1 cmd
+21:08:26.587370 raft.go:1152: wakeup by 1 cmd
+21:08:26.587384 raft.go:1152: wakeup by 1 cmd
+21:08:26.587146 raft.go:321: [t3-Candidate@p3][771] try RequestVote({T: 3, Id: 3, LastLogIndex: 2, LastLogTerm: 2}) to p0
+21:08:26.587479 raft.go:321: [t1-Leader@p1][22273] try AppendEntries({Term: 1, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 1}) to p0
+21:08:26.587600 raft.go:483: [t1-Leader@p1][515] cvt to follower by RequestVoteCall({T: 3, Id: 3, LastLogIndex: 2, LastLogTerm: 2})
+21:08:26.587625 raft.go:483: [t2-Candidate@p2][259] cvt to follower by RequestVoteCall({T: 3, Id: 3, LastLogIndex: 2, LastLogTerm: 2})
+21:08:26.587845 raft.go:505: [t2-Candidate@p2][259] give p3 vote(newly-give: true)
+21:08:26.587850 raft.go:505: [t1-Leader@p1][515] give p3 vote(newly-give: true)
+21:08:26.588099 raft.go:326: [t3-Candidate@p3][259] done RequestVote(use 0 ms) to p2, which return {T: 2, Voted: true}
+21:08:26.588097 raft.go:321: [t3-Follower@p1][22529] try AppendEntries({Term: 3, Id: 1, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 1}) to p3
+21:08:26.588189 raft.go:848: [t3-Candidate@p3][259] get a vote reply {T: 2, Voted: true}, voteNum now is 1
+21:08:26.588247 raft.go:326: [t3-Candidate@p3][515] done RequestVote(use 1 ms) to p1, which return {T: 1, Voted: true}
+21:08:26.588323 raft.go:848: [t3-Candidate@p3][515] get a vote reply {T: 1, Voted: true}, voteNum now is 2
+21:08:26.588352 raft.go:861: [t3-Candidate@p3][515] After get 3 number of votes, I'm Leader!
+21:08:26.588385 raft.go:839: [t3-Leader@p3] election done
+21:08:26.588518 raft.go:321: [t3-Leader@p3][1283] try AppendEntries({Term: 3, Id: 3, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p2
+21:08:26.588559 raft.go:321: [t3-Leader@p3][1795] try AppendEntries({Term: 3, Id: 3, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p1
+21:08:26.588558 raft.go:321: [t3-Leader@p3][1539] try AppendEntries({Term: 3, Id: 3, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 0, LeaderCommit: 2}) to p0
+21:08:26.588627 raft.go:682: [t3-Leader@p3][22529] log length from 2 to 3
+21:08:26.588832 raft.go:321: [t3-Leader@p3][2051] try AppendEntries({Term: 3, Id: 3, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p2
+21:08:26.588946 raft.go:321: [t3-Leader@p3][2307] try AppendEntries({Term: 3, Id: 3, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p1
+21:08:26.589358 raft.go:682: [t3-Follower@p2][2051] log length from 2 to 3
+21:08:26.589376 raft.go:326: [t3-Leader@p3][1795] done AppendEntries(use 0 ms) to p1, which return {Term: 3, Suc: false, Info: "", FailInfo: {true 1 2}}
+21:08:26.589418 raft.go:321: [t3-Leader@p3][2563] try AppendEntries({Term: 3, Id: 3, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p4
+21:08:26.589451 raft.go:321: [t3-Leader@p3][2819] try AppendEntries({Term: 3, Id: 3, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p0
+21:08:26.589516 raft.go:687: [t3-Follower@p2][2051] commitIndex from 1 to 2
+21:08:26.589661 raft.go:682: [t3-Follower@p1][2307] log length from 3 to 3
+21:08:26.589694 raft.go:707: [t3-Follower@p2] applied CMD {index: 2, cmd: 7829704129134981} to buffer
+21:08:26.589717 raft.go:951: [t3-Leader@p3][1795] wakeup
+21:08:26.589747 raft.go:953: [t3-Leader@p3][1795] On AppendEntriesReply nextIndex[1] from 3 to 2
+21:08:26.589778 raft.go:958: [t3-Leader@p3][1795] wakeup p1
+21:08:26.589789 raft.go:687: [t3-Follower@p1][2307] commitIndex from 1 to 2
+21:08:26.589829 raft.go:321: [t3-Leader@p3][3075] try AppendEntries({Term: 3, Id: 3, PrevLogIndex: 2, PrevLogTerm: 1, EntriesLen: 1, LeaderCommit: 2}) to p4
+21:08:26.589945 config.go:195: apply error: when peer 2 apply {true 7829704129134981855 2 false [] 0 0}, not consistent with p4's cmd 5469254360724946171
+21:08:26.589976 raft.go:326: [t3-Follower@p1][22529] done AppendEntries(use 1 ms) to p3, which return {Term: 3, Suc: true, Info: ""}
+21:08:26.590081 raft.go:707: [t3-Follower@p1] applied CMD {index: 2, cmd: 7829704129134981} to buffer
+21:08:26.590075 raft.go:321: [t3-Leader@p3][3331] try AppendEntries({Term: 3, Id: 3, PrevLogIndex: 1, PrevLogTerm: 1, EntriesLen: 2, LeaderCommit: 2}) to p1
+21:08:26.590198 raft.go:326: [t3-Leader@p3][1283] done AppendEntries(use 1 ms) to p2, which return {Term: 3, Suc: false, Info: "Stale"}
+21:08:26.590222 config.go:195: apply error: when peer 1 apply {true 7829704129134981855 2 false [] 0 0}, not consistent with p4's cmd 5469254360724946171
+21:08:26.590109 raft.go:326: [t3-Leader@p3][2307] done AppendEntries(use 1 ms) to p1, which return {Term: 3, Suc: true, Info: ""}
+21:08:26.590292 raft.go:953: [t3-Leader@p3][2307] On AppendEntriesReply nextIndex[1] from 2 to 4
+21:08:26.590373 raft.go:326: [t3-Leader@p3][2051] done AppendEntries(use 1 ms) to p2, which return {Term: 3, Suc: true, Info: ""}
+21:08:26.590459 raft.go:953: [t3-Leader@p3][2051] On AppendEntriesReply nextIndex[2] from 3 to 4
+21:08:26.590638 raft.go:682: [t3-Follower@p1][3331] log length from 3 to 3
+21:08:26.591103 raft.go:326: [t3-Leader@p3][3331] done AppendEntries(use 0 ms) to p1, which return {Term: 3, Suc: true, Info: ""}
+21:08:26.591164 raft.go:953: [t3-Leader@p3][3331] On AppendEntriesReply nextIndex[1] from 4 to 4
+21:08:26.591918 raft.go:321: [t2-Leader@p0][13568] try AppendEntries({Term: 2, Id: 0, PrevLogIndex: 2, PrevLogTerm: 2, EntriesLen: 1, LeaderCommit: 2}) to p3

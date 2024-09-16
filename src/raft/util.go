@@ -24,6 +24,10 @@ func Assert(cond bool, reason string) {
 	}
 }
 
+func AssertNoReason(cond bool) {
+	Assert(cond, "")
+}
+
 func Panic() {
 	Assert(false, "Panic")
 }
@@ -52,6 +56,14 @@ func FromByte(bs []byte, i interface{}) {
 	err := d.Decode(i)
 	reason := fmt.Sprintf("Dncode fail: %v", err)
 	Assert(err == nil, reason)
+}
+
+func Min(a, b int) int {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
 }
 
 func init() {
