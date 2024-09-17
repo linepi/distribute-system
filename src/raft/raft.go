@@ -362,7 +362,6 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 	defer rf.mu.Unlock()
 	AssertNoReason(args.LastIncludedIndex >= 1)
 	AssertNoReason(args.LastIncludedTerm >= 1)
-	AssertNoReason(args.LastIncludedTerm >= rf.snapshotLastTerm)
 
 	logPrefix := fmt.Sprintf("[%v][%v]", rf.basicInfo(), args.RpcId)
 	reply.Term = rf.currentTerm
