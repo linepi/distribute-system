@@ -523,10 +523,13 @@ func (cfg *config) nCommitted(index int) (int, interface{}) {
 	var cmd interface{} = nil
 	for i := 0; i < len(cfg.rafts); i++ {
 		cfg.mu.Lock()
-		if cfg.applyErr[i] != "" {
-			cfg.t.Fatal(cfg.applyErr[i])
+		applyErr := cfg.applyErr[i]
+		cfg.mu.Unlock()
+		if applyErr != "" {
+			cfg.t.Fatal(applyErr)
 		}
 
+		cfg.mu.Lock()
 		cmd1, ok := cfg.logs[i][index]
 		cfg.mu.Unlock()
 

@@ -43,7 +43,7 @@ class Data:
     def show(self):
         used = '%.1f' % (time.time() - self.starttime)
         print(f"\r{used}s running: {self.running}, "
-              f"suc: {self.success}, timeout: {self.timeout}, failure: {self.failure}", end='')
+              f"suc: {self.success}, timeout: {self.timeout}, failure: {self.failure}  \b\b", end='')
 
 class OutputAnalyzer:
     def __init__(self, output: str):

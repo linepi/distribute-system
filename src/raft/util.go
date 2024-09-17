@@ -66,6 +66,14 @@ func Min(a, b int) int {
 	}
 }
 
+func Max(a, b int) int {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
+}
+
 func init() {
 	if os.Getenv("RAFT_STDOUT") != "" {
 		stdout = true
