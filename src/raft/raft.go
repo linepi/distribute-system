@@ -1179,7 +1179,7 @@ func (rf *Raft) applyRoutine() {
 		}
 		rf.mu.Lock()
 		if rf.commitIndex > rf.lastApplied {
-			if rf.commitIndex < rf.snapshotLastIndex {
+			if rf.commitIndex == rf.snapshotLastIndex {
 				rf.applyMsg(&ApplyMsg{
 					false, nil, 0,
 					true, rf.snapshot, rf.snapshotLastTerm, rf.snapshotLastIndex,
@@ -1188,12 +1188,10 @@ func (rf *Raft) applyRoutine() {
 			var appliedMsgs []ApplyMsg
 			for j := rf.lastApplied + 1; j <= rf.commitIndex; j++ {
 				logIndex := j - rf.snapshotLastIndex
-				if len(rf.log) > 0 && logIndex >= 1 && logIndex <= len(rf.log) {
-					cmd := rf.log[logIndex-1].Cmd
-					appliedMsgs = append(appliedMsgs, ApplyMsg{
-						true, cmd, j,
-						false, nil, 0, 0})
-				}
+				cmd := rf.log[logIndex-1].Cmd
+				appliedMsgs = append(appliedMsgs, ApplyMsg{
+					true, cmd, j,
+					false, nil, 0, 0})
 			}
 			rf.applyMsgs(&appliedMsgs)
 			rf.lastApplied = rf.commitIndex

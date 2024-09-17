@@ -66,17 +66,18 @@ def handle_proc(proc, cfg, data):
         if exit_status == 124:
             data.timeout += 1
             data.timeout_logfiles.append(output_analyzer.logfile())
-        elif exit_status != 0:
+        elif exit_status == 0:
+            data.success += 1
+            data.success_logfiles.append(output_analyzer.logfile())
+        else:
             data.failure += 1
             data.failure_logfiles.append(output_analyzer.logfile())
+            print(f'\n{stdout}')
             t1 = cfg.stop_fail_rate
             t2 = (data.all - data.success) / data.all
             if t2 > t1:
                 print(f"\nSTOP FAIL RATE REACHED {t2}, bigger than {t1}")
                 running = False
-        else:
-            data.success += 1
-            data.success_logfiles.append(output_analyzer.logfile())
         data.show()
 
 def run_command(cfg: Cfg, data: Data):

@@ -235,33 +235,32 @@ func (kv *KVServer) applyMsgReceiver() {
 			if !ok || !req.StateMachineUpdated {
 				if !ok {
 					// this will happen if the op request happend in other servers
-					req = Request{true, false, "", nil}
-				} else {
-					req.StateMachineUpdated = true
+					req = Request{false, false, "", nil}
 				}
 
 				entry, exist := kv.data[op.Key]
-				if !exist || entry.LastReqId != op.Id {
-					if op.Type == OpPut {
-						kv.data[op.Key] = DataEntry{op.Id, op.Val}
-					} else if op.Type == OpAppend {
-						if exist {
-							kv.data[op.Key] = DataEntry{op.Id, entry.Value + op.Val}
-						} else {
-							kv.data[op.Key] = DataEntry{op.Id, op.Val}
-						}
-					} else if op.Type == OpGet {
-						if exist {
-							req.HasValue = true
-							req.Value = entry.Value
-						} else {
-							req.HasValue = false
-						}
-					} else if op.Type == OpNop {
-
+				if op.Type == OpPut {
+					kv.data[op.Key] = DataEntry{op.Id, op.Val}
+					req.StateMachineUpdated = true
+				} else if op.Type == OpAppend {
+					if exist && entry.LastReqId != op.Id {
+						kv.data[op.Key] = DataEntry{op.Id, entry.Value + op.Val}
 					} else {
-						log.Fatalf("Not expect")
+						kv.data[op.Key] = DataEntry{op.Id, op.Val}
 					}
+					req.StateMachineUpdated = true
+				} else if op.Type == OpGet {
+					if exist {
+						req.HasValue = true
+						req.Value = entry.Value
+					} else {
+						req.HasValue = false
+					}
+					req.StateMachineUpdated = true
+				} else if op.Type == OpNop {
+					// do nothing
+				} else {
+					log.Fatalf("Not expect")
 				}
 				kv.request[op.Id] = req
 				// if this server get this request, wakeup all waiting goroutine
@@ -270,10 +269,14 @@ func (kv *KVServer) applyMsgReceiver() {
 				}
 			}
 
-			if kv.maxraftstate != -1 && kv.rf.CurrentStateSize() > int64(kv.maxraftstate) {
+			// at least 32 log should snapshot
+			currentIndex := msg.CommandIndex
+			snapshotLastIndex := kv.rf.SnapshotLastIndex()
+			if kv.maxraftstate != -1 && kv.rf.CurrentStateSize() > int64(kv.maxraftstate) &&
+				currentIndex-snapshotLastIndex > 32 {
 				Log.Printf("snapshot when state size is %v(maxstatesize %v)\n",
 					kv.rf.CurrentStateSize(), kv.maxraftstate)
-				kv.snapshot(msg.CommandIndex)
+				kv.snapshot(currentIndex)
 			}
 		} else if msg.SnapshotValid {
 			Log.Printf("[s%v] applied SNAPSHOT {index: %v, term: %v}\n",

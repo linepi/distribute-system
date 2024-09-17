@@ -11,11 +11,12 @@ import (
 var clerkId atomic.Int32
 
 var (
-	NoLeaderTolerateTime   = raft.Timeout{Fixed: 1000}
-	GetRpcInterval         = raft.Timeout{Fixed: 2000}
-	PutRpcInterval         = raft.Timeout{Fixed: 2000}
-	AppendRpcInterval      = raft.Timeout{Fixed: 2000}
-	RequestIdClearInterval = raft.Timeout{Fixed: 3000}
+	NoLeaderTolerateTime     = raft.Timeout{Fixed: 1000}
+	GetRpcInterval           = raft.Timeout{Fixed: 2000}
+	PutRpcInterval           = raft.Timeout{Fixed: 2000}
+	AppendRpcInterval        = raft.Timeout{Fixed: 2000}
+	RequestIdClearBufferSize = 1024
+	RequestIdClearSize       = 64
 )
 
 type Clerk struct {
@@ -35,13 +36,12 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
 	ck.servers = servers
 	ck.id = clerkId.Add(1)
-	ck.requestIds = make(chan int64, 1000)
+	ck.requestIds = make(chan int64, RequestIdClearBufferSize)
 	go func() {
-		lastTime := time.Now()
 		var buffer []int64
 		for reqId := range ck.requestIds {
 			buffer = append(buffer, reqId)
-			if time.Now().Sub(lastTime) > RequestIdClearInterval.New() {
+			if len(buffer) > RequestIdClearSize {
 				bufferCopy := make([]int64, len(buffer))
 				copy(bufferCopy, buffer)
 				for i := 0; i < len(ck.servers); i++ {
@@ -51,7 +51,6 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 					}(i)
 				}
 				buffer = nil
-				lastTime = time.Now()
 			}
 		}
 	}()
@@ -125,7 +124,7 @@ func (ck *Clerk) sendFinishRpc(requestId []int64, i int) bool {
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) Get(key string) string {
 	requestIdGet := ck.newReqeustId()
-	Log.Printf("[c%v][r%v] call Clerk.Get(\"%v\")\n", ck.id, requestIdGet, key)
+	Log.Printf("[c%v][r%v] call Clerk.Get(\"%v\")\n", ck.id, requestIdGet&0xffffffff, key)
 
 	replyBuffer := make(chan *GetReply, len(ck.servers))
 	var reply *GetReply
@@ -169,7 +168,7 @@ func (ck *Clerk) Get(key string) string {
 // arguments. and reply must be passed as a pointer.
 func (ck *Clerk) PutAppend(key string, value string, op string) {
 	requestIdWrite := ck.newReqeustId()
-	Log.Printf("[c%v][r%v] call Clerk.PutAppend(\"%v\", \"%v\", %v)\n", ck.id, requestIdWrite, key, value, op)
+	Log.Printf("[c%v][r%v] call Clerk.PutAppend(\"%v\", \"%v\", %v)\n", ck.id, requestIdWrite&0xffffffff, key, value, op)
 
 	replyBuffer := make(chan *PutAppendReply, len(ck.servers))
 	var rpcInterval time.Duration
