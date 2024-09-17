@@ -44,8 +44,7 @@ var (
 	CommandBufferSize          = 1024
 	CommandNoticeInterval      = Timeout{4, 0}
 	CommandNoticeTriggerNumber = 16
-
-	ApplierBufferSize = 1024
+	ApplierBufferSize          = 1024
 )
 
 func (to *Timeout) New() time.Duration {
@@ -147,6 +146,8 @@ type Raft struct {
 	commandTriggerBuffer chan bool
 	applyBuffer          chan ApplyMsg
 	applyUpdateTrigger   chan bool
+
+	rpcIntervalController []atomic.Int32
 }
 
 type RpcInfo struct {
@@ -323,9 +324,11 @@ func (rf *Raft) sendRpc(
 	if ok {
 		Log.Printf("%v done %v(use %v ms) to p%v, which return %v\n",
 			logPrefix, methname, usedMilli, peer, reply)
+		rf.rpcIntervalController[peer].Store(0)
 	} else {
 		Log.Printf("%v call %v(use %v ms) to p%v failed\n",
 			logPrefix, methname, usedMilli, peer)
+		rf.rpcIntervalController[peer].Add(1)
 	}
 	return ok
 }
@@ -657,7 +660,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			follow it (§5.3).
 		*/
 		rf.log = append(rf.log[:prevIndexInLog-1])
-		Log.Printf("%v truncate %v logs, now %v\n", logPrefix, lastLen-len(rf.log), rf.log)
+		Log.Printf("%v truncate %v logs, now %v\n", logPrefix, lastLen-len(rf.log), len(rf.log))
 		rf.persist(rf.newPersistant())
 		return
 	}
@@ -683,7 +686,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			}
 		}
 		Log.Printf("%v sync logs(append %v, revise %v, override %v), now %v\n",
-			logPrefix, appended, revised, overrided, rf.log)
+			logPrefix, appended, revised, overrided, len(rf.log))
 		rf.persist(rf.newPersistant())
 	}
 	reply.SuccessNextIndex = rf.snapshotLastIndex + len(rf.log) + 1
@@ -753,8 +756,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		rf.commandTriggerBuffer <- true
 	}
 	rf.persist(rf.newPersistant())
-	Log.Printf("[%v] Start(%v) -> (index:%v,term:%v,isLeader:%v) | Look at logs: %v",
-		rf.basicInfo(), cmd2str(command), index, rf.currentTerm, isLeader, rf.log)
+	Log.Printf("[%v] Start(%v) -> (index:%v,term:%v,isLeader:%v)",
+		rf.basicInfo(), cmd2str(command), index, rf.currentTerm, isLeader)
 	return index, term, isLeader
 }
 
@@ -775,6 +778,23 @@ func (rf *Raft) Kill() {
 func (rf *Raft) killed() bool {
 	z := atomic.LoadInt32(&rf.dead)
 	return z == 1
+}
+
+func (rf *Raft) intervalFactor(peer int) time.Duration {
+	ctl := rf.rpcIntervalController[peer].Load()
+	if ctl == 0 {
+		return 1
+	} else {
+		val := 1.0
+		for ctl > 0 {
+			ctl--
+			val *= 2
+			if val >= 8 {
+				break
+			}
+		}
+		return time.Duration(val)
+	}
 }
 
 func (rf *Raft) election() {
@@ -820,7 +840,7 @@ func (rf *Raft) election() {
 				select {
 				case <-finish:
 					return
-				case <-time.After(RequestVoteInterval.New()):
+				case <-time.After(RequestVoteInterval.New() * rf.intervalFactor(i)):
 				}
 			}
 		}(i)
@@ -1070,7 +1090,7 @@ func (rf *Raft) doLeader() {
 				case <-finish:
 					return
 				case <-rf.wakeups[i]:
-				case <-time.After(AppendEntryInterval.New()):
+				case <-time.After(AppendEntryInterval.New() * rf.intervalFactor(i)):
 				}
 			}
 		}(i)
@@ -1125,7 +1145,9 @@ func (rf *Raft) ticker() {
 				Log.Panicf("Unexpect\n")
 			}
 			rf.mu.Unlock()
-			rf.election()
+			for rf.timeout() {
+				rf.election()
+			}
 			if rf.getStateRLock() == Leader {
 				rf.doLeader()
 			}
@@ -1159,11 +1181,11 @@ func (rf *Raft) commandNoticer() {
 				break
 			}
 		}
+		Log.Printf("wakeup by %v cmd\n", cnt)
 		for i := 0; i < len(rf.peers); i++ {
 			if i == rf.me {
 				continue
 			}
-			Log.Printf("wakeup by %v cmd\n", cnt)
 			rf.wakeupLeaderRpc(i)
 		}
 	}
@@ -1250,8 +1272,11 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.commitIndex = 0
 	rf.lastApplied = 0
 
+	rf.rpcIntervalController = make([]atomic.Int32, len(rf.peers))
 	for i := 0; i < len(rf.peers); i++ {
 		rf.wakeups = append(rf.wakeups, make(chan bool, 1))
+		rf.rpcIntervalController[i] = atomic.Int32{}
+		rf.rpcIntervalController[i].Store(0)
 	}
 	rf.applyBuffer = make(chan ApplyMsg, ApplierBufferSize)
 	rf.commandTriggerBuffer = make(chan bool, CommandBufferSize)

@@ -39,11 +39,14 @@ class Data:
         self.failure_logfiles = []
         self.success_logfiles = []
         self.starttime = time.time()
+        self.total_run_time = 0.0  # 新增总运行时间
 
     def show(self):
         used = '%.1f' % (time.time() - self.starttime)
+        average_run_time = '%.2f' % (self.total_run_time / self.all) if self.all > 0 else '0.00'
         print(f"\r{used}s running: {self.running}, "
-              f"suc: {self.success}, timeout: {self.timeout}, failure: {self.failure}  \b\b", end='')
+              f"suc: {self.success}, timeout: {self.timeout}, failure: {self.failure}, "
+              f"avg_run_time: {average_run_time}s  \b\b", end='')
 
 class OutputAnalyzer:
     def __init__(self, output: str):
@@ -54,13 +57,18 @@ class OutputAnalyzer:
 
 def handle_proc(proc, cfg, data):
     global running
-    stdout = proc.communicate()[0]
+    start_time = time.time()  # 记录开始时间
+    stdout, _ = proc.communicate()
+    end_time = time.time()    # 记录结束时间
+    run_time = end_time - start_time  # 计算运行时间
+
     if not running:
         return
     output_analyzer = OutputAnalyzer(stdout)
     with data_lock:
         data.running -= 1
         data.all += 1
+        data.total_run_time += run_time  # 累加运行时间
 
         exit_status = proc.returncode
         if exit_status == 124:
@@ -131,9 +139,11 @@ def main():
             break
 
     time.sleep(5)
-    print("\r------------------------- end ----------------------------")
+    print("\r------------------------------------- end ----------------------------------------")
     print(f"parallel: {args.parallel}, test: {args.test}")
     print(f"success: {data.success}, fail: {data.failure}, timeout: {data.timeout}")
+
+    print(f"Average Run Time: {'%.2f' % (data.total_run_time / data.all) if data.all > 0 else '0.00'}s")
 
     for logfile in data.success_logfiles:
         try:
