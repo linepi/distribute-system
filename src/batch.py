@@ -12,7 +12,7 @@ data_lock = threading.Lock()
 def signal_handler(sig, frame):
     print("...killing all processes")
     for proc in procs:
-        proc.terminate()  # 发送终止信号给子进程
+        proc.terminate()  # Send terminate signal to subprocess
     global running
     running = False
 
@@ -39,7 +39,7 @@ class Data:
         self.failure_logfiles = []
         self.success_logfiles = []
         self.starttime = time.time()
-        self.total_run_time = 0.0  # 新增总运行时间
+        self.total_run_time = 0.0  # Total run time
 
     def show(self):
         used = '%.1f' % (time.time() - self.starttime)
@@ -57,10 +57,18 @@ class OutputAnalyzer:
 
 def handle_proc(proc, cfg, data):
     global running
-    start_time = time.time()  # 记录开始时间
-    stdout, _ = proc.communicate()
-    end_time = time.time()    # 记录结束时间
-    run_time = end_time - start_time  # 计算运行时间
+    start_time = time.time()  # Record start time
+
+    try:
+        stdout, _ = proc.communicate(timeout=cfg.command_timeout)
+        exit_status = proc.returncode
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        stdout, _ = proc.communicate()
+        exit_status = None  # Indicate timeout
+
+    end_time = time.time()
+    run_time = end_time - start_time  # Calculate run time
 
     if not running:
         return
@@ -68,10 +76,9 @@ def handle_proc(proc, cfg, data):
     with data_lock:
         data.running -= 1
         data.all += 1
-        data.total_run_time += run_time  # 累加运行时间
+        data.total_run_time += run_time  # Accumulate run time
 
-        exit_status = proc.returncode
-        if exit_status == 124:
+        if exit_status is None:
             data.timeout += 1
             data.timeout_logfiles.append(output_analyzer.logfile())
         elif exit_status == 0:
@@ -95,8 +102,14 @@ def run_command(cfg: Cfg, data: Data):
     threads = []
 
     for i in range(1, cfg.parallel + 1):
-        command = ["timeout", str(cfg.command_timeout), cfg.program, "-test.run", cfg.test]
-        proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env={'RAFT_LOG_DIR': cfg.batch_log_dir}, text=True)
+        command = [cfg.program, "-test.run", cfg.test]
+        proc = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env={'RAFT_LOG_DIR': cfg.batch_log_dir},
+            text=True
+        )
         procs.append(proc)
         with data_lock:
             data.running += 1

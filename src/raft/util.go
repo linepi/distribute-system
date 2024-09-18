@@ -14,6 +14,10 @@ var Log *log.Logger
 
 var stdout = false
 
+func DPrintf(format string, a ...interface{}) {
+	Log.Printf(format, a...)
+}
+
 func Assert(cond bool, reason string) {
 	if !cond {
 		if len(reason) > 0 {

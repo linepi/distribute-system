@@ -34,15 +34,15 @@ type Timeout struct {
 }
 
 var (
-	AppendEntryInterval        = Timeout{100, 50}
-	RequestVoteInterval        = Timeout{100, 50}
+	AppendEntryInterval        = Timeout{200, 50}
+	RequestVoteInterval        = Timeout{50, 50}
 	LeaderWaitReplyInterval    = Timeout{50, 0}
 	CandidateWaitReplyInterval = Timeout{50, 0}
 	ApplyUpdateInterval        = Timeout{200, 0}
-	TickerInterval             = Timeout{150, 150}
+	TickerInterval             = Timeout{50, 50}
 	PeerTimeoutInterval        = Timeout{450, 200}
 	CommandBufferSize          = 1024
-	CommandNoticeInterval      = Timeout{4, 0}
+	CommandNoticeInterval      = Timeout{8, 0}
 	CommandNoticeTriggerNumber = 16
 	ApplierBufferSize          = 1024
 )
@@ -242,7 +242,7 @@ func (rf *Raft) Snapshot(index int, snapshot []byte) {
 		return
 	}
 
-	Log.Printf("[%v] snapshot index %v\n", rf.basicInfo(), index)
+	DPrintf("[%v] snapshot index %v\n", rf.basicInfo(), index)
 	rf.snapshot = snapshot
 	rf.snapshotLastIndex = index
 	rf.snapshotLastTerm = rf.log[logIndex-1].Term
@@ -274,12 +274,6 @@ func (rf *Raft) getTermRLock() int {
 	return rf.currentTerm
 }
 
-func (rf *Raft) getVotedForRLock() int {
-	rf.mu.RLock()
-	defer rf.mu.RUnlock()
-	return rf.votedFor
-}
-
 func (rf *Raft) timeout() bool {
 	rf.mu.RLock()
 	defer rf.mu.RUnlock()
@@ -308,7 +302,7 @@ func (rf *Raft) getLastTermIndex() (int, int) {
 func (rf *Raft) GetState() (int, bool) {
 	rf.mu.RLock()
 	defer rf.mu.RUnlock()
-	Log.Printf("GetState[%v](T: %v, State: %v)\n",
+	DPrintf("GetState[%v](T: %v, State: %v)\n",
 		rf.me, rf.currentTerm, rf.currentState)
 	return rf.currentTerm, rf.currentState == Leader
 }
@@ -317,16 +311,16 @@ func (rf *Raft) GetState() (int, bool) {
 func (rf *Raft) sendRpc(
 	logPrefix string, peer int, meth string, args interface{}, reply interface{}) bool {
 	methname := meth[5:]
-	Log.Printf("%v try %v(%v) to p%v\n", logPrefix, methname, args, peer)
+	DPrintf("%v try %v(%v) to p%v\n", logPrefix, methname, args, peer)
 	start := time.Now()
 	ok := rf.peers[peer].Call(meth, args, reply)
 	usedMilli := time.Now().Sub(start).Microseconds() / 1000.0
 	if ok {
-		Log.Printf("%v done %v(use %v ms) to p%v, which return %v\n",
+		DPrintf("%v done %v(use %v ms) to p%v, which return %v\n",
 			logPrefix, methname, usedMilli, peer, reply)
 		rf.rpcIntervalController[peer].Store(0)
 	} else {
-		Log.Printf("%v call %v(use %v ms) to p%v failed\n",
+		DPrintf("%v call %v(use %v ms) to p%v failed\n",
 			logPrefix, methname, usedMilli, peer)
 		rf.rpcIntervalController[peer].Add(1)
 	}
@@ -358,6 +352,7 @@ func (reply *InstallSnapshotReply) String() string {
 }
 
 func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapshotReply) {
+	rf.rpcIntervalController[args.LeaderId].Store(0)
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	AssertNoReason(args.LastIncludedIndex >= 1)
@@ -384,7 +379,7 @@ func (rf *Raft) InstallSnapshot(args *InstallSnapshotArgs, reply *InstallSnapsho
 		rf.log = append(rf.log[mayLogIndex:])
 	}
 
-	Log.Printf("%v InstallSnapshot ssLastIndex %v, commitIndex %v, lastApplied %v\n",
+	DPrintf("%v InstallSnapshot ssLastIndex %v, commitIndex %v, lastApplied %v\n",
 		logPrefix, rf.snapshotLastIndex, rf.commitIndex, rf.lastApplied)
 	rf.snapshotLastIndex = args.LastIncludedIndex
 	rf.snapshotLastTerm = args.LastIncludedTerm
@@ -462,10 +457,9 @@ func (rf *Raft) newRequestVoteArgs(_ int) RequestVoteArgs {
 }
 
 func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
-	// Your code here (3A, 3B).
+	rf.rpcIntervalController[args.CandidateId].Store(0)
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-
 	logPrefix := fmt.Sprintf("[%v][%v]", rf.basicInfo(), args.RpcId)
 
 	reply.Term = rf.currentTerm
@@ -474,7 +468,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 	if args.Term < rf.currentTerm {
 		return
 	} else if args.Term > rf.currentTerm {
-		Log.Printf("%v cvt to follower by RequestVoteCall(%v)\n",
+		DPrintf("%v cvt to follower by RequestVoteCall(%v)\n",
 			logPrefix, args)
 		rf.onBiggerTerm(args.Term)
 		rf.persist(rf.newPersistant())
@@ -496,7 +490,7 @@ func (rf *Raft) RequestVote(args *RequestVoteArgs, reply *RequestVoteReply) {
 		if lastLogIndex == 0 || lastLogTerm < args.LastLogTerm ||
 			(lastLogTerm == args.LastLogTerm && lastLogIndex <= args.LastLogIndex) {
 			reply.VoteGranted = true
-			Log.Printf("%v give p%v vote(newly-give: %v)\n",
+			DPrintf("%v give p%v vote(newly-give: %v)\n",
 				logPrefix, args.CandidateId, votedFor != args.CandidateId)
 			rf.votedFor = args.CandidateId
 			rf.setTimeoutVal()
@@ -593,6 +587,7 @@ func (rf *Raft) NewAppendEntriesArgs(i int) AppendEntriesArgs {
 }
 
 func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply) {
+	rf.rpcIntervalController[args.LeaderId].Store(0)
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	logPrefix := fmt.Sprintf("[%v][%v]", rf.basicInfo(), args.RpcId)
@@ -605,7 +600,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 		reply.Info = "Leader's term is lower than me"
 		return
 	} else if args.Term > rf.currentTerm {
-		Log.Printf("%v cvt to follower by AppendEntriesCall(%v)\n",
+		DPrintf("%v cvt to follower by AppendEntriesCall(%v)\n",
 			logPrefix, args)
 		rf.onBiggerTerm(args.Term)
 		logPrefix = fmt.Sprintf("[%v][%v]", rf.basicInfo(), args.RpcId)
@@ -659,7 +654,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 			follow it (§5.3).
 		*/
 		rf.log = append(rf.log[:prevIndexInLog-1])
-		Log.Printf("%v truncate %v logs, now %v\n", logPrefix, lastLen-len(rf.log), len(rf.log))
+		DPrintf("%v truncate %v logs, now %v\n", logPrefix, lastLen-len(rf.log), len(rf.log))
 		rf.persist(rf.newPersistant())
 		return
 	}
@@ -684,7 +679,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 				}
 			}
 		}
-		Log.Printf("%v sync logs(append %v, revise %v, override %v), now %v\n",
+		DPrintf("%v sync logs(append %v, revise %v, override %v), now %v\n",
 			logPrefix, appended, revised, overrided, len(rf.log))
 		rf.persist(rf.newPersistant())
 	}
@@ -692,7 +687,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 
 	if args.LeaderCommit > rf.commitIndex {
 		newCommitIndex := Min(len(rf.log)+rf.snapshotLastIndex, args.LeaderCommit)
-		Log.Printf("%v commitIndex from %v to %v\n", logPrefix, rf.commitIndex, newCommitIndex)
+		DPrintf("%v commitIndex from %v to %v\n", logPrefix, rf.commitIndex, newCommitIndex)
 		rf.commitIndex = newCommitIndex
 		rf.triggerApplyUpdate()
 	}
@@ -711,14 +706,14 @@ func (rf *Raft) applyMsgs(msgs []ApplyMsg) {
 		rf.applyBuffer <- msg
 
 		if msg.CommandValid {
-			Log.Printf("[p%v] applied CMD {index: %v, cmd: %v} to buffer\n",
+			DPrintf("[p%v] applied CMD {index: %v, cmd: %v} to buffer\n",
 				rf.me, msg.CommandIndex, cmd2str(msg.Command))
 		} else if msg.SnapshotValid {
 			showLen := 10
 			if len(msg.Snapshot) < showLen {
 				showLen = len(msg.Snapshot)
 			}
-			Log.Printf("[p%v] applied SNAPSHOT {index: %v, term: %v, data: %v} to buffer\n",
+			DPrintf("[p%v] applied SNAPSHOT {index: %v, term: %v, data: %v} to buffer\n",
 				rf.me, msg.SnapshotIndex, msg.SnapshotTerm, msg.Snapshot[:showLen])
 		} else {
 			Panic()
@@ -755,7 +750,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		rf.commandTriggerBuffer <- true
 	}
 	rf.persist(rf.newPersistant())
-	Log.Printf("[%v] Start(%v) -> (index:%v,term:%v,isLeader:%v)",
+	DPrintf("[%v] Start(%v) -> (index:%v,term:%v,isLeader:%v)",
 		rf.basicInfo(), cmd2str(command), index, rf.currentTerm, isLeader)
 	return index, term, isLeader
 }
@@ -788,7 +783,7 @@ func (rf *Raft) intervalFactor(peer int) time.Duration {
 		for ctl > 0 {
 			ctl--
 			val *= 2
-			if val >= 8 {
+			if val >= 16 {
 				break
 			}
 		}
@@ -861,7 +856,7 @@ func (rf *Raft) election() {
 	}
 
 	close(finish)
-	Log.Printf("[%v] election done\n", rf.basicInfoRLock())
+	DPrintf("[%v] election done\n", rf.basicInfoRLock())
 	wg.Wait()
 }
 
@@ -871,7 +866,7 @@ func (rf *Raft) onRequestVoteReply(msg *RequestVoteWrapper) {
 	logPrefix := fmt.Sprintf("[%v][%v]", rf.basicInfo(), msg.args.RpcId)
 
 	if msg.reply.Term > rf.currentTerm {
-		Log.Printf("%v cvt to follower by RequestVote's Reply(%v) from p%v\n",
+		DPrintf("%v cvt to follower by RequestVote's Reply(%v) from p%v\n",
 			logPrefix, msg.reply, msg.reply.ReceiverId)
 		rf.onBiggerTerm(msg.reply.Term)
 		rf.persist(rf.newPersistant())
@@ -880,11 +875,11 @@ func (rf *Raft) onRequestVoteReply(msg *RequestVoteWrapper) {
 		if msg.reply.VoteGranted && !rf.voted[msg.reply.ReceiverId] {
 			rf.voted[msg.reply.ReceiverId] = true
 			rf.votedNum = rf.votedNum + 1
-			Log.Printf("%v get a vote from %v, voteNum now is %v\n",
+			DPrintf("%v get a vote from %v, voteNum now is %v\n",
 				logPrefix, msg.reply.ReceiverId, rf.votedNum)
 		}
 		if rf.votedNum == len(rf.peers)/2+1 {
-			Log.Printf("%v After get %v number of votes, I'm Leader!\n",
+			DPrintf("%v After get %v number of votes, I'm Leader!\n",
 				logPrefix, rf.votedNum)
 			rf.currentState = Leader
 			// reinitialized something after election
@@ -914,7 +909,7 @@ func (rf *Raft) leaderUpdateCommit(rpcId int64) {
 				}
 			}
 			if nrBigger >= len(rf.peers)/2+1 {
-				Log.Printf("[%v][%v] update commitIndex to %v", rf.basicInfo(), rpcId, i)
+				DPrintf("[%v][%v] update commitIndex to %v", rf.basicInfo(), rpcId, i)
 				rf.commitIndex = i
 				rf.triggerApplyUpdate()
 				break
@@ -936,7 +931,7 @@ func (rf *Raft) leaderOnAppendEntriesReply(msg *AppendEntriesWrapper) {
 	logPrefix := fmt.Sprintf("[%v][%v]", rf.basicInfo(), msg.arg.RpcId)
 
 	if msg.reply.Term > rf.currentTerm {
-		Log.Printf("%v cvt to follower by AppendEntried's Reply(%v) from p%v\n",
+		DPrintf("%v cvt to follower by AppendEntried's Reply(%v) from p%v\n",
 			logPrefix, msg.reply, msg.reply.ReceiverId)
 		rf.onBiggerTerm(msg.reply.Term)
 		rf.persist(rf.newPersistant())
@@ -975,13 +970,13 @@ func (rf *Raft) leaderOnAppendEntriesReply(msg *AppendEntriesWrapper) {
 		}
 		needWakeup = true
 	}
-	Log.Printf("%v On AppendEntriesReply nextIndex[%v] from %v to %v\n",
+	DPrintf("%v On AppendEntriesReply nextIndex[%v] from %v to %v\n",
 		logPrefix, msg.reply.ReceiverId, initialNextIndex, rf.nextIndex[msg.reply.ReceiverId])
 	Assert(rf.nextIndex[msg.reply.ReceiverId] > 0, "nextIndex < 1!")
 	rf.leaderUpdateCommit(msg.arg.RpcId)
 	rf.mu.Unlock()
 	if needWakeup {
-		Log.Printf("%v wakeup p%v\n", logPrefix, msg.reply.ReceiverId)
+		DPrintf("%v wakeup p%v\n", logPrefix, msg.reply.ReceiverId)
 		rf.wakeupLeaderRpc(msg.reply.ReceiverId)
 	}
 }
@@ -994,7 +989,7 @@ func (rf *Raft) leaderOnInstallSnapshotReply(msg *InstallSnapshotWrapper) {
 
 	logPrefix := fmt.Sprintf("[%v][%v]", rf.basicInfo(), args.RpcId)
 	if reply.Term > rf.currentTerm {
-		Log.Printf("%v cvt to follower by InstallSnapshot's Reply(%v) from p%v\n",
+		DPrintf("%v cvt to follower by InstallSnapshot's Reply(%v) from p%v\n",
 			logPrefix, reply, reply.ReceiverId)
 		rf.onBiggerTerm(reply.Term)
 		rf.persist(rf.newPersistant())
@@ -1007,13 +1002,13 @@ func (rf *Raft) leaderOnInstallSnapshotReply(msg *InstallSnapshotWrapper) {
 		rf.matchIndex[i] = rf.nextIndex[i] - 1
 		rf.leaderUpdateCommit(msg.arg.RpcId)
 		if rf.nextIndex[i] <= rf.snapshotLastIndex+len(rf.log) {
-			Log.Printf("%v wakeup p%v\n", logPrefix, msg.reply.ReceiverId)
+			DPrintf("%v wakeup p%v\n", logPrefix, msg.reply.ReceiverId)
 			rf.mu.Unlock()
 			rf.wakeupLeaderRpc(msg.reply.ReceiverId)
 			rf.mu.Lock()
 		}
 	}
-	Log.Printf("%v On InstallSnapsthoReply nextIndex[%v] from %v to %v\n",
+	DPrintf("%v On InstallSnapsthoReply nextIndex[%v] from %v to %v\n",
 		logPrefix, msg.reply.ReceiverId, initialNextIndex, rf.nextIndex[msg.reply.ReceiverId])
 }
 
@@ -1117,7 +1112,7 @@ func (rf *Raft) doLeader() {
 		}
 	}
 	close(finish)
-	Log.Printf("[%v] leader over\n", rf.basicInfoRLock())
+	DPrintf("[%v] leader over\n", rf.basicInfoRLock())
 	wg.Wait()
 }
 
@@ -1136,10 +1131,10 @@ func (rf *Raft) ticker() {
 		if rf.timeout() {
 			rf.mu.Lock()
 			if rf.currentState == Follower {
-				Log.Printf("[%v] follower election timeout\n", rf.basicInfo())
+				DPrintf("[%v] follower election timeout\n", rf.basicInfo())
 				rf.currentState = Candidate
 			} else if rf.currentState == Candidate {
-				Log.Printf("[%v] candidate election timeout\n", rf.basicInfo())
+				DPrintf("[%v] candidate election timeout\n", rf.basicInfo())
 			} else {
 				Log.Panicf("Unexpect\n")
 			}
@@ -1180,13 +1175,8 @@ func (rf *Raft) commandNoticer() {
 				break
 			}
 		}
-		Log.Printf("wakeup by %v cmd\n", cnt)
-		for i := 0; i < len(rf.peers); i++ {
-			if i == rf.me {
-				continue
-			}
-			rf.wakeupLeaderRpc(i)
-		}
+		DPrintf("wakeup by %v cmd\n", cnt)
+		rf.wakeupLeaderAllRpc()
 	}
 }
 
@@ -1292,6 +1282,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// start ticker goroutine to start elections
 	go rf.ticker()
 
-	Log.Printf("Make raft peer %v done\n", rf.me)
+	DPrintf("Make raft peer %v done\n", rf.me)
 	return rf
 }
