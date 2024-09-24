@@ -20,6 +20,7 @@ const (
 var (
 	GetWaitTimeout       = raft.Timeout{Fixed: 5000}
 	PutAppendWaitTimeout = raft.Timeout{Fixed: 5000}
+	RequestGroupSize     = int64(8)
 )
 
 type Op struct {
@@ -41,8 +42,13 @@ type DataEntry struct {
 	Value     string
 }
 
+type RequestGroup struct {
+	Mu  sync.Mutex
+	Req map[int64]Request
+}
+
 type KVServer struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	me      int
 	rf      *raft.Raft
 	applyCh chan raft.ApplyMsg
@@ -50,8 +56,20 @@ type KVServer struct {
 
 	maxraftstate int // snapshot if log grows this big
 
-	data    map[string]DataEntry // actual state machine k/v data
-	request map[int64]Request    // map request id to log index
+	data     map[string]DataEntry // actual state machine k/v data
+	requests []RequestGroup       // map request id to log index
+}
+
+func (kv *KVServer) reqLock(id int64) {
+	kv.requests[id%RequestGroupSize].Mu.Lock()
+}
+
+func (kv *KVServer) reqUnlock(id int64) {
+	kv.requests[id%RequestGroupSize].Mu.Unlock()
+}
+
+func (kv *KVServer) reqMap(id int64) *map[int64]Request {
+	return &kv.requests[id%RequestGroupSize].Req
 }
 
 func optype2str(t int) string {
@@ -76,13 +94,16 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		return
 	}
 
-	kv.mu.Lock()
-	defer kv.mu.Unlock()
-	_, ok := kv.request[args.Id]
-	if ok && kv.request[args.Id].StateMachineUpdated {
-		if kv.request[args.Id].HasValue {
+	kv.mu.RLock()
+	defer kv.mu.RUnlock()
+	kv.reqLock(args.Id)
+	defer kv.reqUnlock(args.Id)
+	req := kv.reqMap(args.Id)
+	_, ok := (*req)[args.Id]
+	if ok && (*req)[args.Id].StateMachineUpdated {
+		if (*req)[args.Id].HasValue {
 			reply.Err = OK
-			reply.Value = kv.request[args.Id].Value
+			reply.Value = (*req)[args.Id].Value
 		} else {
 			reply.Err = ErrNoKey
 		}
@@ -96,23 +117,23 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 			return
 		}
 		if !ok {
-			kv.request[args.Id] = Request{false, false, "", make(chan struct{})}
+			(*req)[args.Id] = Request{false, false, "", make(chan struct{})}
 		}
 	}
 
-	done := kv.request[args.Id].Done
-	kv.mu.Unlock()
+	done := (*req)[args.Id].Done
+	kv.reqUnlock(args.Id)
 	select {
 	case <-done:
-		kv.mu.Lock()
-		if kv.request[args.Id].HasValue {
+		kv.reqLock(args.Id)
+		if (*req)[args.Id].HasValue {
 			reply.Err = OK
-			reply.Value = kv.request[args.Id].Value
+			reply.Value = (*req)[args.Id].Value
 		} else {
 			reply.Err = ErrNoKey
 		}
 	case <-time.After(GetWaitTimeout.New()):
-		kv.mu.Lock()
+		kv.reqLock(args.Id)
 		Log.Printf("%v request timeout\n", logPrefix)
 		reply.Err = ErrTimeout
 	}
@@ -128,10 +149,13 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype
 		return
 	}
 
-	kv.mu.Lock()
-	defer kv.mu.Unlock()
-	_, ok := kv.request[args.Id]
-	if ok && kv.request[args.Id].StateMachineUpdated {
+	kv.mu.RLock()
+	defer kv.mu.RUnlock()
+	kv.reqLock(args.Id)
+	defer kv.reqUnlock(args.Id)
+	req := kv.reqMap(args.Id)
+	_, ok := (*req)[args.Id]
+	if ok && (*req)[args.Id].StateMachineUpdated {
 		reply.Err = OK
 		return
 	} else {
@@ -144,20 +168,20 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype
 			return
 		}
 		if !ok {
-			kv.request[args.Id] = Request{false, false, "", make(chan struct{})}
+			(*req)[args.Id] = Request{false, false, "", make(chan struct{})}
 		}
 	}
 
 	Log.Printf("%v start wait\n", logPrefix)
 
-	done := kv.request[args.Id].Done
-	kv.mu.Unlock()
+	done := (*req)[args.Id].Done
+	kv.reqUnlock(args.Id)
 	select {
 	case <-done:
-		kv.mu.Lock()
+		kv.reqLock(args.Id)
 		reply.Err = OK
 	case <-time.After(PutAppendWaitTimeout.New()):
-		kv.mu.Lock()
+		kv.reqLock(args.Id)
 		Log.Printf("%v request timeout\n", logPrefix)
 		reply.Err = ErrTimeout
 	}
@@ -183,11 +207,24 @@ func (kv *KVServer) Finish(args *FinishArgs, reply *FinishReply) {
 	if kv.killed() {
 		return
 	}
-	kv.mu.Lock()
-	defer kv.mu.Unlock()
 
+	idGroups := make([][]int64, RequestGroupSize)
+	for i := 0; i < len(idGroups); i++ {
+		idGroups[i] = make([]int64, 0)
+	}
 	for _, id := range args.Ids {
-		delete(kv.request, id)
+		idGroups[id%RequestGroupSize] = append(idGroups[id%RequestGroupSize], id)
+	}
+	for i := 0; i < len(idGroups); i++ {
+		if len(idGroups[i]) == 0 {
+			continue
+		}
+		kv.reqLock(idGroups[i][0])
+		reqmap := kv.reqMap(idGroups[i][0])
+		for _, id := range idGroups[i] {
+			delete(*reqmap, id)
+		}
+		kv.reqUnlock(idGroups[i][0])
 	}
 	reply.Err = OK
 }
@@ -216,13 +253,14 @@ func (kv *KVServer) applyMsgReceiver() {
 		if kv.killed() {
 			return
 		}
-		kv.mu.Lock()
 		if msg.CommandValid {
 			var op Op
 			op = msg.Command.(Op)
 			Log.Printf("[s%v] applied op {type: %v, key: \"%v\", value: \"%v\"}\n",
 				kv.me, optype2str(op.Type), op.Key, op.Val)
-			req, ok := kv.request[op.Id]
+			kv.reqLock(op.Id)
+			reqmap := kv.reqMap(op.Id)
+			req, ok := (*reqmap)[op.Id]
 			if !ok || !req.StateMachineUpdated {
 				if !ok {
 					// this will happen if the op request happend in other servers
@@ -251,12 +289,13 @@ func (kv *KVServer) applyMsgReceiver() {
 				} else {
 					log.Fatalf("Not expect")
 				}
-				kv.request[op.Id] = req
+				(*reqmap)[op.Id] = req
 				// if this server get this request, wakeup all waiting goroutine
-				if kv.request[op.Id].Done != nil {
-					close(kv.request[op.Id].Done)
+				if (*reqmap)[op.Id].Done != nil {
+					close((*reqmap)[op.Id].Done)
 				}
 			}
+			kv.reqUnlock(op.Id)
 
 			// at least 32 log should snapshot
 			currentIndex := msg.CommandIndex
@@ -265,28 +304,34 @@ func (kv *KVServer) applyMsgReceiver() {
 				currentIndex-snapshotLastIndex > 32 {
 				Log.Printf("snapshot when state size is %v(maxstatesize %v)\n",
 					kv.rf.CurrentStateSize(), kv.maxraftstate)
+				kv.mu.Lock()
 				kv.snapshot(currentIndex)
+				kv.mu.Unlock()
 			}
 		} else if msg.SnapshotValid {
 			Log.Printf("[s%v] applied SNAPSHOT {index: %v, term: %v}\n",
 				kv.me, msg.SnapshotIndex, msg.SnapshotTerm)
+			kv.mu.Lock()
 			kv.fromSnapshot(msg.Snapshot)
+			kv.mu.Unlock()
 		} else {
 			Panic()
 		}
-
-		kv.mu.Unlock()
 	}
 }
 
 type SnapshotData struct {
-	Data    map[string]DataEntry
-	Request map[int64]Request // map request id to log index
+	Data     map[string]DataEntry
+	Requests []map[int64]Request // map request id to log index
 }
 
 // need lock
 func (kv *KVServer) snapshot(index int) {
-	kv.rf.Snapshot(index, raft.ToByte(SnapshotData{kv.data, kv.request}))
+	snapshotData := SnapshotData{kv.data, make([]map[int64]Request, RequestGroupSize)}
+	for i := 0; i < len(kv.requests); i++ {
+		snapshotData.Requests[i] = kv.requests[i].Req
+	}
+	kv.rf.Snapshot(index, raft.ToByte(snapshotData))
 }
 
 func (kv *KVServer) fromSnapshot(snapshot []byte) {
@@ -294,7 +339,9 @@ func (kv *KVServer) fromSnapshot(snapshot []byte) {
 	var sd SnapshotData
 	raft.FromByte(snapshot, &sd)
 	kv.data = sd.Data
-	kv.request = sd.Request
+	for i := 0; i < len(sd.Requests); i++ {
+		kv.requests[i].Req = sd.Requests[i]
+	}
 }
 
 // StartKVServer servers[] contains the ports of the set of
@@ -319,11 +366,17 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 	snapshot := persister.ReadSnapshot()
+	kv.requests = make([]RequestGroup, RequestGroupSize)
+	for i := 0; i < len(kv.requests); i++ {
+		kv.requests[i] = RequestGroup{
+			Mu:  sync.Mutex{},
+			Req: map[int64]Request{},
+		}
+	}
 	if len(snapshot) > 0 {
 		kv.fromSnapshot(snapshot)
 	} else {
 		kv.data = make(map[string]DataEntry)
-		kv.request = make(map[int64]Request)
 	}
 
 	go kv.applyMsgReceiver()
