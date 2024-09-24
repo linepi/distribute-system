@@ -11,3 +11,4 @@ playground
 .idea
 venv
 .vscode
+**/trace.out

@@ -15,12 +15,11 @@ const (
 	OpAppend = 0
 	OpPut    = 1
 	OpGet    = 2
-	OpNop    = 3
 )
 
 var (
-	GetWaitTimeout       = raft.Timeout{Fixed: 1000}
-	PutAppendWaitTimeout = raft.Timeout{Fixed: 1000}
+	GetWaitTimeout       = raft.Timeout{Fixed: 5000}
+	PutAppendWaitTimeout = raft.Timeout{Fixed: 5000}
 )
 
 type Op struct {
@@ -70,8 +69,6 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		return
 	}
 
-	kv.mu.Lock()
-	defer kv.mu.Unlock()
 	logPrefix := fmt.Sprintf("[s%v][req%v][rpc%v]", kv.me, args.Id&0xffffffff, args.RpcId)
 	_, isLeader := kv.rf.GetState()
 	if !isLeader {
@@ -79,6 +76,8 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		return
 	}
 
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
 	_, ok := kv.request[args.Id]
 	if ok && kv.request[args.Id].StateMachineUpdated {
 		if kv.request[args.Id].HasValue {
@@ -90,11 +89,7 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		return
 	} else {
 		var op Op
-		if ok {
-			op = Op{OpNop, "", "", args.Id}
-		} else {
-			op = Op{OpGet, args.Key, "", args.Id}
-		}
+		op = Op{OpGet, args.Key, "", args.Id}
 		_, _, isStartLeader := kv.rf.Start(op)
 		if !isStartLeader {
 			reply.Err = ErrWrongLeader
@@ -124,8 +119,6 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 }
 
 func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype int) {
-	kv.mu.Lock()
-	defer kv.mu.Unlock()
 	logPrefix := fmt.Sprintf("[s%v][req%v][rpc%v]", kv.me, args.Id&0xffffffff, args.RpcId)
 
 	_, isLeader := kv.rf.GetState()
@@ -135,17 +128,15 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype
 		return
 	}
 
+	kv.mu.Lock()
+	defer kv.mu.Unlock()
 	_, ok := kv.request[args.Id]
 	if ok && kv.request[args.Id].StateMachineUpdated {
 		reply.Err = OK
 		return
 	} else {
 		var op Op
-		if ok {
-			op = Op{OpNop, "", "", args.Id}
-		} else {
-			op = Op{optype, args.Key, args.Value, args.Id}
-		}
+		op = Op{optype, args.Key, args.Value, args.Id}
 		_, _, isStartLeader := kv.rf.Start(op)
 		if !isStartLeader {
 			reply.Err = ErrWrongLeader
@@ -257,8 +248,6 @@ func (kv *KVServer) applyMsgReceiver() {
 						req.HasValue = false
 					}
 					req.StateMachineUpdated = true
-				} else if op.Type == OpNop {
-					// do nothing
 				} else {
 					log.Fatalf("Not expect")
 				}

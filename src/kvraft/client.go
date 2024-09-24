@@ -12,9 +12,9 @@ var clerkId atomic.Int32
 
 var (
 	NoLeaderTolerateTime     = raft.Timeout{Fixed: 1000}
-	GetRpcInterval           = raft.Timeout{Fixed: 2000}
-	PutRpcInterval           = raft.Timeout{Fixed: 2000}
-	AppendRpcInterval        = raft.Timeout{Fixed: 2000}
+	GetRpcInterval           = raft.Timeout{Fixed: 1000}
+	PutRpcInterval           = raft.Timeout{Fixed: 1000}
+	AppendRpcInterval        = raft.Timeout{Fixed: 1000}
 	RequestIdClearBufferSize = 1024
 	RequestIdClearSize       = 64
 )

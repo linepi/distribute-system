@@ -34,15 +34,15 @@ type Timeout struct {
 }
 
 var (
-	AppendEntryInterval        = Timeout{200, 50}
+	AppendEntryInterval        = Timeout{50, 50}
 	RequestVoteInterval        = Timeout{50, 50}
 	LeaderWaitReplyInterval    = Timeout{50, 0}
 	CandidateWaitReplyInterval = Timeout{50, 0}
 	ApplyUpdateInterval        = Timeout{200, 0}
 	TickerInterval             = Timeout{50, 50}
-	PeerTimeoutInterval        = Timeout{450, 200}
+	PeerTimeoutInterval        = Timeout{350, 200}
 	CommandBufferSize          = 1024
-	CommandNoticeInterval      = Timeout{8, 0}
+	CommandNoticeInterval      = Timeout{4, 0}
 	CommandNoticeTriggerNumber = 16
 	ApplierBufferSize          = 1024
 )
@@ -782,8 +782,8 @@ func (rf *Raft) intervalFactor(peer int) time.Duration {
 		val := 1.0
 		for ctl > 0 {
 			ctl--
-			val *= 2
-			if val >= 16 {
+			val += 1
+			if val >= 4 {
 				break
 			}
 		}
