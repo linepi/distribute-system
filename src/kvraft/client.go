@@ -4,6 +4,7 @@ import (
 	"6.5840/labrpc"
 	"6.5840/raft"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -12,11 +13,11 @@ var clerkId atomic.Int32
 
 var (
 	NoLeaderTolerateTime     = raft.Timeout{Fixed: 1000}
-	GetRpcInterval           = raft.Timeout{Fixed: 3000}
-	PutRpcInterval           = raft.Timeout{Fixed: 3000}
-	AppendRpcInterval        = raft.Timeout{Fixed: 3000}
+	GetRpcInterval           = raft.Timeout{Fixed: 2000}
+	PutRpcInterval           = raft.Timeout{Fixed: 2000}
+	AppendRpcInterval        = raft.Timeout{Fixed: 2000}
 	RequestIdClearBufferSize = 1024
-	RequestIdClearSize       = 512
+	RequestIdClearSize       = 64
 )
 
 type Clerk struct {
@@ -128,6 +129,7 @@ func (ck *Clerk) Get(key string) string {
 
 	replyBuffer := make(chan *GetReply, len(ck.servers))
 	var reply *GetReply
+	var wg sync.WaitGroup
 	done := atomic.Bool{}
 	done.Store(false)
 	i := int(ck.leaderIndex.Load())
@@ -135,7 +137,9 @@ func (ck *Clerk) Get(key string) string {
 	for ; j < len(ck.servers); j++ {
 		go func(i int) {
 			for !done.Load() {
+				wg.Add(1)
 				go func() {
+					defer wg.Done()
 					ck.sendGetRpc(&key, requestIdGet, replyBuffer, i)
 				}()
 				time.Sleep(GetRpcInterval.New())
@@ -153,7 +157,9 @@ func (ck *Clerk) Get(key string) string {
 	reply = <-replyBuffer
 end:
 	done.Store(true)
-	//ck.requestIds <- requestIdGet
+	// only when all rpc instance quit can send finish
+	wg.Wait()
+	ck.requestIds <- requestIdGet
 	return reply.Value
 }
 
@@ -178,6 +184,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	}
 
 	var reply *PutAppendReply
+	var wg sync.WaitGroup
 	done := atomic.Bool{}
 	done.Store(false)
 	i := int(ck.leaderIndex.Load())
@@ -185,7 +192,9 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	for ; j < len(ck.servers); j++ {
 		go func(i int) {
 			for !done.Load() {
+				wg.Add(1)
 				go func() {
+					defer wg.Done()
 					ck.sendPutAppendRpc(op, &key, &value, requestIdWrite, replyBuffer, i)
 				}()
 				time.Sleep(rpcInterval)
@@ -204,7 +213,8 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 end:
 	AssertNoReason(reply.Err == OK)
 	done.Store(true)
-	//ck.requestIds <- requestIdWrite
+	wg.Wait()
+	ck.requestIds <- requestIdWrite
 }
 
 func (ck *Clerk) Put(key string, value string) {

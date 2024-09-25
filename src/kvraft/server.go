@@ -20,7 +20,7 @@ const (
 var (
 	GetWaitTimeout       = raft.Timeout{Fixed: 5000}
 	PutAppendWaitTimeout = raft.Timeout{Fixed: 5000}
-	RequestGroupSize     = int64(8)
+	RequestGroupSize     = int64(16)
 )
 
 type Op struct {

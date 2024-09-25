@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 	"time"
-	"unsafe"
 )
 
 func channelWork(c chan struct{}) {
@@ -35,38 +34,4 @@ func TestCoder(t *testing.T) {
 		channelWork(req2.Done)
 	}
 	channelWork(req.Done)
-}
-
-func TestCoderAtom(t *testing.T) {
-}
-
-func TestMap(t *testing.T) {
-	a := make(map[string]string)
-	a["3"] = "3"
-	done := make(chan struct{})
-	go func() {
-		for i := 0; i < 1000; i++ {
-			a["3"] = string(rune(i))
-		}
-		done <- struct{}{}
-	}()
-	for i := 0; i < 1000; i++ {
-		delete(a, "3")
-	}
-	<-done
-}
-
-func TestBuffer(t *testing.T) {
-	var buf []int
-	buf = append(buf, 3)
-	buf = append(buf, 3)
-	buf = append(buf, 3)
-	buf = append(buf, 3)
-	buf = append(buf, 3)
-	buf = append(buf, 3)
-	buf = append(buf, 3)
-	fmt.Println(buf)
-
-	var a string
-	fmt.Println(unsafe.Sizeof(a))
 }
