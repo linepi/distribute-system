@@ -98,12 +98,12 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 	defer kv.mu.RUnlock()
 	kv.reqLock(args.Id)
 	defer kv.reqUnlock(args.Id)
-	req := kv.reqMap(args.Id)
-	_, ok := (*req)[args.Id]
-	if ok && (*req)[args.Id].StateMachineUpdated {
-		if (*req)[args.Id].HasValue {
+	reqmap := kv.reqMap(args.Id)
+	req, ok := (*reqmap)[args.Id]
+	if ok && req.StateMachineUpdated {
+		if req.HasValue {
 			reply.Err = OK
-			reply.Value = (*req)[args.Id].Value
+			reply.Value = req.Value
 		} else {
 			reply.Err = ErrNoKey
 		}
@@ -117,18 +117,18 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 			return
 		}
 		if !ok {
-			(*req)[args.Id] = Request{false, false, "", make(chan struct{})}
+			(*reqmap)[args.Id] = Request{false, false, "", make(chan struct{})}
 		}
 	}
 
-	done := (*req)[args.Id].Done
+	done := (*reqmap)[args.Id].Done
 	kv.reqUnlock(args.Id)
 	select {
 	case <-done:
 		kv.reqLock(args.Id)
-		if (*req)[args.Id].HasValue {
+		if (*reqmap)[args.Id].HasValue {
 			reply.Err = OK
-			reply.Value = (*req)[args.Id].Value
+			reply.Value = (*reqmap)[args.Id].Value
 		} else {
 			reply.Err = ErrNoKey
 		}
@@ -153,9 +153,9 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype
 	defer kv.mu.RUnlock()
 	kv.reqLock(args.Id)
 	defer kv.reqUnlock(args.Id)
-	req := kv.reqMap(args.Id)
-	_, ok := (*req)[args.Id]
-	if ok && (*req)[args.Id].StateMachineUpdated {
+	reqmap := kv.reqMap(args.Id)
+	req, ok := (*reqmap)[args.Id]
+	if ok && req.StateMachineUpdated {
 		reply.Err = OK
 		return
 	} else {
@@ -168,13 +168,13 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype
 			return
 		}
 		if !ok {
-			(*req)[args.Id] = Request{false, false, "", make(chan struct{})}
+			(*reqmap)[args.Id] = Request{false, false, "", make(chan struct{})}
 		}
 	}
 
 	Log.Printf("%v start wait\n", logPrefix)
 
-	done := (*req)[args.Id].Done
+	done := (*reqmap)[args.Id].Done
 	kv.reqUnlock(args.Id)
 	select {
 	case <-done:
@@ -207,6 +207,8 @@ func (kv *KVServer) Finish(args *FinishArgs, reply *FinishReply) {
 	if kv.killed() {
 		return
 	}
+	kv.mu.RLock()
+	defer kv.mu.RUnlock()
 
 	idGroups := make([][]int64, RequestGroupSize)
 	for i := 0; i < len(idGroups); i++ {

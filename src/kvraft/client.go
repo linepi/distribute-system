@@ -16,7 +16,7 @@ var (
 	PutRpcInterval           = raft.Timeout{Fixed: 3000}
 	AppendRpcInterval        = raft.Timeout{Fixed: 3000}
 	RequestIdClearBufferSize = 1024
-	RequestIdClearSize       = 64
+	RequestIdClearSize       = 512
 )
 
 type Clerk struct {
@@ -144,17 +144,16 @@ func (ck *Clerk) Get(key string) string {
 		if j == 0 {
 			select {
 			case reply = <-replyBuffer:
-				done.Store(true)
-				ck.requestIds <- requestIdGet
-				return reply.Value
+				goto end
 			case <-time.After(NoLeaderTolerateTime.New()):
 			}
 		}
 		i = (i + 1) % len(ck.servers)
 	}
 	reply = <-replyBuffer
+end:
 	done.Store(true)
-	ck.requestIds <- requestIdGet
+	//ck.requestIds <- requestIdGet
 	return reply.Value
 }
 
@@ -195,19 +194,17 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		if j == 0 {
 			select {
 			case reply = <-replyBuffer:
-				AssertNoReason(reply.Err == OK)
-				done.Store(true)
-				ck.requestIds <- requestIdWrite
-				return
+				goto end
 			case <-time.After(NoLeaderTolerateTime.New()):
 			}
 		}
 		i = (i + 1) % len(ck.servers)
 	}
 	reply = <-replyBuffer
+end:
 	AssertNoReason(reply.Err == OK)
 	done.Store(true)
-	ck.requestIds <- requestIdWrite
+	//ck.requestIds <- requestIdWrite
 }
 
 func (ck *Clerk) Put(key string, value string) {
