@@ -12,7 +12,7 @@ import (
 var clerkId atomic.Int32
 
 var (
-	NoLeaderTolerateTime     = raft.Timeout{Fixed: 1000}
+	NoLeaderTolerateTime     = raft.Timeout{Fixed: 0}
 	GetRpcInterval           = raft.Timeout{Fixed: 2000}
 	PutRpcInterval           = raft.Timeout{Fixed: 2000}
 	AppendRpcInterval        = raft.Timeout{Fixed: 2000}
@@ -79,7 +79,9 @@ func (ck *Clerk) sendPutAppendRpc(
 
 		if reply.Err == OK {
 			ck.leaderIndex.Store(int32(args.ServerId))
-			buffer <- &reply
+			if len(buffer) == 0 {
+				buffer <- &reply
+			}
 		}
 	} else {
 		Log.Printf("%v rpc %v() failed to s%v\n", logPrefix, op, i)
@@ -100,7 +102,9 @@ func (ck *Clerk) sendGetRpc(key *string, requestId int64, buffer chan *GetReply,
 
 		if reply.Err == OK || reply.Err == ErrNoKey {
 			ck.leaderIndex.Store(int32(args.ServerId))
-			buffer <- &reply
+			if len(buffer) == 0 {
+				buffer <- &reply
+			}
 		}
 	} else {
 		Log.Printf("%v rpc Get() failed to s%v\n", logPrefix, i)
@@ -127,7 +131,7 @@ func (ck *Clerk) Get(key string) string {
 	requestIdGet := ck.newReqeustId()
 	Log.Printf("[c%v][r%v] call Clerk.Get(\"%v\")\n", ck.id, requestIdGet&0xffffffff, key)
 
-	replyBuffer := make(chan *GetReply, len(ck.servers))
+	replyBuffer := make(chan *GetReply, 1)
 	var reply *GetReply
 	var wg sync.WaitGroup
 	done := atomic.Bool{}
@@ -158,6 +162,7 @@ func (ck *Clerk) Get(key string) string {
 end:
 	done.Store(true)
 	// only when all rpc instance quit can send finish
+	time.Sleep(time.Millisecond * 5) // avoid race between wg.Add and wg.Wait
 	wg.Wait()
 	ck.requestIds <- requestIdGet
 	return reply.Value
@@ -175,7 +180,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	requestIdWrite := ck.newReqeustId()
 	Log.Printf("[c%v][r%v] call Clerk.PutAppend(\"%v\", \"%v\", %v)\n", ck.id, requestIdWrite&0xffffffff, key, value, op)
 
-	replyBuffer := make(chan *PutAppendReply, len(ck.servers))
+	replyBuffer := make(chan *PutAppendReply, 1)
 	var rpcInterval time.Duration
 	if op == "Put" {
 		rpcInterval = PutRpcInterval.New()
@@ -213,6 +218,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 end:
 	AssertNoReason(reply.Err == OK)
 	done.Store(true)
+	time.Sleep(time.Millisecond * 5)
 	wg.Wait()
 	ck.requestIds <- requestIdWrite
 }

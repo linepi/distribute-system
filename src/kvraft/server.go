@@ -15,6 +15,7 @@ const (
 	OpAppend = 0
 	OpPut    = 1
 	OpGet    = 2
+	OpNone   = 3
 )
 
 var (
@@ -110,7 +111,11 @@ func (kv *KVServer) Get(args *GetArgs, reply *GetReply) {
 		return
 	} else {
 		var op Op
-		op = Op{OpGet, args.Key, "", args.Id}
+		if ok {
+			op = Op{OpNone, "", "", args.Id}
+		} else {
+			op = Op{OpGet, args.Key, "", args.Id}
+		}
 		_, _, isStartLeader := kv.rf.Start(op)
 		if !isStartLeader {
 			reply.Err = ErrWrongLeader
@@ -160,7 +165,11 @@ func (kv *KVServer) PutAppend(args *PutAppendArgs, reply *PutAppendReply, optype
 		return
 	} else {
 		var op Op
-		op = Op{optype, args.Key, args.Value, args.Id}
+		if ok {
+			op = Op{OpNone, "", "", args.Id}
+		} else {
+			op = Op{optype, args.Key, args.Value, args.Id}
+		}
 		_, _, isStartLeader := kv.rf.Start(op)
 		if !isStartLeader {
 			reply.Err = ErrWrongLeader
@@ -258,8 +267,12 @@ func (kv *KVServer) applyMsgReceiver() {
 		if msg.CommandValid {
 			var op Op
 			op = msg.Command.(Op)
+			if op.Type == OpNone {
+				continue
+			}
 			Log.Printf("[s%v] applied op {type: %v, key: \"%v\", value: \"%v\"}\n",
 				kv.me, optype2str(op.Type), op.Key, op.Val)
+
 			kv.reqLock(op.Id)
 			reqmap := kv.reqMap(op.Id)
 			req, ok := (*reqmap)[op.Id]
@@ -272,14 +285,10 @@ func (kv *KVServer) applyMsgReceiver() {
 				entry, exist := kv.data[op.Key]
 				if op.Type == OpPut {
 					kv.data[op.Key] = DataEntry{op.Id, op.Val}
-					req.StateMachineUpdated = true
 				} else if op.Type == OpAppend {
-					if exist && entry.LastReqId != op.Id {
+					if !exist || entry.LastReqId != op.Id {
 						kv.data[op.Key] = DataEntry{op.Id, entry.Value + op.Val}
-					} else {
-						kv.data[op.Key] = DataEntry{op.Id, op.Val}
 					}
-					req.StateMachineUpdated = true
 				} else if op.Type == OpGet {
 					if exist {
 						req.HasValue = true
@@ -287,13 +296,13 @@ func (kv *KVServer) applyMsgReceiver() {
 					} else {
 						req.HasValue = false
 					}
-					req.StateMachineUpdated = true
 				} else {
 					log.Fatalf("Not expect")
 				}
+				req.StateMachineUpdated = true
 				(*reqmap)[op.Id] = req
 				// if this server get this request, wakeup all waiting goroutine
-				if (*reqmap)[op.Id].Done != nil {
+				if ok && (*reqmap)[op.Id].Done != nil {
 					close((*reqmap)[op.Id].Done)
 				}
 			}

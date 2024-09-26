@@ -635,7 +635,7 @@ func (rf *Raft) AppendEntries(args *AppendEntriesArgs, reply *AppendEntriesReply
 	}
 
 	lastLen := len(rf.log)
-	if args.PrevLogIndex >= 1 && prevTerm != args.PrevLogTerm {
+	if prevIndexInLog >= 1 && prevTerm != args.PrevLogTerm {
 		// snapshot is not consistent with leader
 		reply.Success = false
 		reply.FailInfo.Valid = true
